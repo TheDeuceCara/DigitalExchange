@@ -3,7 +3,7 @@ plugins {
     id 'eclipse'
     id 'idea'
     id 'maven-publish'
-    id 'net.neoforged.moddev' version '2.0.78-beta'
+    id 'net.neoforged.moddev' version '2.0.78'
 }
 
 version = property('mod_version')
