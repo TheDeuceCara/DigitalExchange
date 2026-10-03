@@ -58,8 +58,9 @@ with open(os.path.join(MODELS_ITEM, "exchange_core.json"), "w") as f:
     json.dump({"parent": "digitalexchange:block/exchange_core"}, f, indent=2)
 
 # 3. LOCALIZATION
-with open(os.path.join(LANG_DIR, "en_us.json"), "w") as f:
+with open(os.path.join(LANG_DIR, "en_us.json"), "w", encoding="utf-8") as f:
     json.dump({
+        "itemGroup.digitalexchange": "DigitalExchange",
         "block.digitalexchange.exchange_core": "Digital Exchange Core",
         "item.digitalexchange.exchange_core": "Digital Exchange Core"
     }, f, indent=2)
