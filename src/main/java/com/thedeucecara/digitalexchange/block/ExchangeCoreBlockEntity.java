@@ -5,7 +5,8 @@ import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.networking.IManagedGridNode;
-import appeng.api.storage.MEStorage;
+import appeng.api.storage.IStorageMounts;
+import appeng.api.storage.IStorageProvider;
 import com.thedeucecara.digitalexchange.init.ModBlockEntities;
 import com.thedeucecara.digitalexchange.integration.ae2.BitValueCalculator;
 import com.thedeucecara.digitalexchange.integration.ae2.ExchangeMEInventory;
@@ -24,7 +25,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ExchangeCoreBlockEntity extends BlockEntity implements IInWorldGridNodeHost, IExchangeCore {
+public class ExchangeCoreBlockEntity extends BlockEntity implements IInWorldGridNodeHost, IExchangeCore, IStorageProvider {
 
     private final IManagedGridNode mainNode;
     private final ExchangeMEInventory inventory;
@@ -36,12 +37,17 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements IInWorldGrid
         this.inventory = new ExchangeMEInventory(this);
         this.mainNode = GridHelper.createManagedNode(this, new ExchangeGridListener())
                 .setFlags(GridFlags.REQUIRE_CHANNEL)
-                .addService(MEStorage.class, this.inventory);
+                .addService(IStorageProvider.class, this);
     }
 
     @Override
     public IGridNode getGridNode(Direction dir) {
         return this.mainNode.getNode();
+    }
+
+    @Override
+    public void mountInventories(IStorageMounts mounts) {
+        mounts.mount(this.inventory);
     }
 
     @Override
@@ -120,9 +126,10 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements IInWorldGrid
 
     private static class ExchangeGridListener implements appeng.api.networking.IGridNodeListener<ExchangeCoreBlockEntity> {
         @Override
-        public void onSecurityBreak(ExchangeCoreBlockEntity nodeOwner) {}
+        public void onSecurityBreak(ExchangeCoreBlockEntity nodeOwner, IGridNode node) {}
+
         @Override
-        public void onSaveChanges(ExchangeCoreBlockEntity nodeOwner) {
+        public void onSaveChanges(ExchangeCoreBlockEntity nodeOwner, IGridNode node) {
             nodeOwner.setChanged();
         }
     }
