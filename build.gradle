@@ -37,8 +37,8 @@ neoForge {
 repositories {
     mavenLocal()
     maven {
-        name = "ModMaven"
-        url = "https://modmaven.dev/"
+        name = "NeoForged"
+        url = "https://maven.neoforged.net/releases"
     }
     maven {
         name = "CurseMaven"
@@ -50,7 +50,8 @@ repositories {
 }
 
 dependencies {
-    implementation "appeng:appliedenergistics2-neoforge:${property('ae2_version')}"
+    // AE2 19.2.17 for NeoForge 1.21.1
+    implementation "curse.maven:applied-energistics-2-223794:${property('ae2_curse_id')}"
 }
 
 tasks.withType(ProcessResources).configureEach {
