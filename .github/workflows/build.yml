@@ -1,0 +1,38 @@
+name: Build DigitalExchange
+
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate Assets and Recipes
+        run: |
+          pip install pillow
+          python scripts/generate_assets.py
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew build
+
+      - name: Upload Mod Jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: DigitalExchange-NeoForge-1.21.1
+          path: build/libs/*.jar
