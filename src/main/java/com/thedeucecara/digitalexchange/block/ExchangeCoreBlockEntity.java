@@ -126,9 +126,6 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements IInWorldGrid
 
     private static class ExchangeGridListener implements appeng.api.networking.IGridNodeListener<ExchangeCoreBlockEntity> {
         @Override
-        public void onSecurityBreak(ExchangeCoreBlockEntity nodeOwner, IGridNode node) {}
-
-        @Override
         public void onSaveChanges(ExchangeCoreBlockEntity nodeOwner, IGridNode node) {
             nodeOwner.setChanged();
         }
