@@ -18,8 +18,6 @@ public class ExchangeItemHandler implements IItemHandler {
 
     @Override
     public int getSlots() {
-        // Slots 0 to N-1: learned item extraction slots
-        // Slot N: insertion deposit slot
         return this.core.getLearnedItems().size() + 1;
     }
 
