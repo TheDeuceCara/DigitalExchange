@@ -106,11 +106,6 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         return this.mainNode.getNode();
     }
 
-    @Nullable
-    public IGridNode getGridNode() {
-        return this.mainNode.getNode();
-    }
-
     public IManagedGridNode getMainNode() {
         return this.mainNode;
     }
