@@ -73,12 +73,12 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         this.inventory = new ExchangeMEInventory(this);
 
         this.mainNode = GridHelper.createManagedNode(this, new ExchangeGridListener())
-                .setFlags(GridFlags.REQUIRE_CHANNEL)
+                .setFlags(GridFlags.REQUIRE_CHANNEL, GridFlags.PREFERRED)
                 .setExposedOnSides(EnumSet.allOf(Direction.class))
                 .setIdlePowerUsage(1.0)
                 .addService(IStorageProvider.class, this);
     }
-
+        
     @Override
     public void onLoad() {
         super.onLoad();
