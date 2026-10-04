@@ -32,19 +32,16 @@ public class DigitalExchangeMod {
                         output.accept(ModBlocks.EXCHANGE_CORE_ITEM.get());
                     }).build());
 
-    public DigitalExchangeMod(IEventBus modEventBus) {
-        // 1. Register Deferred Registers
-        ModBlocks.BLOCKS.register(modEventBus);
-        ModBlocks.ITEMS.register(modEventBus);
-        ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
-        CREATIVE_MODE_TABS.register(modEventBus);
+   public DigitalExchangeMod(IEventBus modEventBus) {
+    ModBlocks.BLOCKS.register(modEventBus);
+    ModBlocks.ITEMS.register(modEventBus);
+    ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+    ModMenus.MENUS.register(modEventBus);
+    CREATIVE_MODE_TABS.register(modEventBus);
 
-        // 2. Add to Vanilla Creative Tabs (Functional Blocks)
-        modEventBus.addListener(this::addCreative);
-
-        // 3. Register Server Lifecycle Listeners
-        NeoForge.EVENT_BUS.addListener(this::onServerStarted);
-    }
+    modEventBus.addListener(this::addCreative);
+    NeoForge.EVENT_BUS.addListener(this::onServerStarted);
+}
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
