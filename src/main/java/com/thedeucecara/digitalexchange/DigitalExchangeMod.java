@@ -14,7 +14,6 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
-import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
@@ -49,20 +48,10 @@ public class DigitalExchangeMod {
 
         // Mod Event Bus Listeners
         modEventBus.addListener(this::addCreative);
-        modEventBus.addListener(this::registerCapabilities);
         modEventBus.addListener(com.thedeucecara.digitalexchange.client.DigitalExchangeClient::registerScreens);
 
         // Game Event Bus Listener
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
-    }
-
-    private void registerCapabilities(RegisterCapabilitiesEvent event) {
-        // Registers AE2's in-world cable and adjacency detection capability
-        event.registerBlockEntity(
-                appeng.api.networking.IInWorldGridNodeHost.LOOKUP,
-                ModBlockEntities.EXCHANGE_CORE.get(),
-                (be, side) -> be
-        );
     }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
