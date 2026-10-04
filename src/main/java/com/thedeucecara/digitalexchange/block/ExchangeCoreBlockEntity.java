@@ -5,7 +5,6 @@ import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.networking.IManagedGridNode;
-import appeng.api.storage.IPriorityHost;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
 import com.thedeucecara.digitalexchange.init.ModBlockEntities;
@@ -39,7 +38,6 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         IInWorldGridNodeHost, 
         IExchangeCore, 
         IStorageProvider, 
-        IPriorityHost, 
         MenuProvider {
 
     private final IManagedGridNode mainNode;
@@ -106,12 +104,10 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         mounts.mount(this.inventory, this.priority);
     }
 
-    @Override
     public int getPriority() {
         return this.priority;
     }
 
-    @Override
     public void setPriority(int priority) {
         this.priority = priority;
         this.saveChanges();
