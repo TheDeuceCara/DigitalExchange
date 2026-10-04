@@ -107,6 +107,10 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
     @Nullable
     @Override
     public IGridNode getGridNode(Direction dir) {
+        // Guarantee node is initialized when queried by adjacent cables
+        if (this.level != null && !this.level.isClientSide() && !this.mainNode.isReady()) {
+            this.mainNode.create(this.level, this.worldPosition);
+        }
         return this.mainNode.getNode();
     }
 
