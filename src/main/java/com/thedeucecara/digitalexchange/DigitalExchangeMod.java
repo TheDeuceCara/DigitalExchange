@@ -49,6 +49,8 @@ public class DigitalExchangeMod {
         // Mod Event Bus Listeners
         modEventBus.addListener(this::addCreative);
         modEventBus.addListener(com.thedeucecara.digitalexchange.client.DigitalExchangeClient::registerScreens);
+        // Inside public DigitalExchangeMod(IEventBus modEventBus, ModContainer modContainer):
+        modEventBus.addListener(this::registerCapabilities);
 
         // Game Event Bus Listener
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
@@ -63,4 +65,12 @@ public class DigitalExchangeMod {
     private void onServerStarted(ServerStartedEvent event) {
         DynamicRecipeGraph.computeGraph(event.getServer());
     }
+    private void registerCapabilities(net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent event) {
+    event.registerBlockEntity(
+            appeng.api.networking.IInWorldGridNodeHost.LOOKUP,
+            ModBlockEntities.EXCHANGE_CORE.get(),
+            (be, side) -> be
+    );
 }
+}
+
