@@ -1,5 +1,6 @@
 package com.thedeucecara.digitalexchange;
 
+import com.thedeucecara.digitalexchange.init.ModMenus;
 import com.thedeucecara.digitalexchange.init.ModBlockEntities;
 import com.thedeucecara.digitalexchange.init.ModBlocks;
 import com.thedeucecara.digitalexchange.integration.ae2.DynamicRecipeGraph;
