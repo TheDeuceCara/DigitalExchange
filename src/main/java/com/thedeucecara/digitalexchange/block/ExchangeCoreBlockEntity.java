@@ -1,21 +1,18 @@
 package com.thedeucecara.digitalexchange.block;
 
-import appeng.api.helpers.IPriorityHost;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.networking.IManagedGridNode;
+import appeng.api.storage.IPriorityHost;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
-import appeng.api.storage.StorageCells;
-import appeng.menu.ISubMenuHost;
-import appeng.menu.implementations.PriorityMenu;
 import com.thedeucecara.digitalexchange.init.ModBlockEntities;
-import com.thedeucecara.digitalexchange.init.ModMenus;
 import com.thedeucecara.digitalexchange.integration.ae2.BitValueCalculator;
 import com.thedeucecara.digitalexchange.integration.ae2.ExchangeMEInventory;
 import com.thedeucecara.digitalexchange.integration.ae2.IExchangeCore;
+import com.thedeucecara.digitalexchange.menu.ExchangeCorePriorityMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -29,6 +26,7 @@ import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -42,14 +40,32 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         IExchangeCore, 
         IStorageProvider, 
         IPriorityHost, 
-        MenuProvider,
-        ISubMenuHost {
+        MenuProvider {
 
     private final IManagedGridNode mainNode;
     private final ExchangeMEInventory inventory;
     private long storedBits = 0L;
     private int priority = 0;
     private final List<ItemStack> learnedItems = new ArrayList<>();
+
+    protected final ContainerData containerData = new ContainerData() {
+        @Override
+        public int get(int index) {
+            return index == 0 ? priority : 0;
+        }
+
+        @Override
+        public void set(int index, int value) {
+            if (index == 0) {
+                setPriority(value);
+            }
+        }
+
+        @Override
+        public int getCount() {
+            return 1;
+        }
+    };
 
     public ExchangeCoreBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.EXCHANGE_CORE.get(), pos, state);
@@ -59,8 +75,6 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
                 .setVisualRepresentation(new ItemStack(this.getBlockState().getBlock()))
                 .addService(IStorageProvider.class, this);
     }
-
-    /* ---- AE2 Lifecycle (Fixes cable not connecting) ---- */
 
     @Override
     public void onLoad() {
@@ -87,8 +101,6 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         return this.mainNode.getNode();
     }
 
-    /* ---- AE2 Storage Mounting & Priority ---- */
-
     @Override
     public void mountInventories(IStorageMounts mounts) {
         mounts.mount(this.inventory, this.priority);
@@ -108,11 +120,12 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
 
     public void notifyGridOfStorageChange() {
         if (this.mainNode.isReady()) {
-            StorageCells.invalidateCache(this.mainNode.getNode());
+            var grid = this.mainNode.getGrid();
+            if (grid != null) {
+                grid.getStorageService().refreshGlobalStorageProvider(this);
+            }
         }
     }
-
-    /* ---- Core Exchange & Bit Logic ---- */
 
     @Override
     public long getStoredBits() {
@@ -166,8 +179,6 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         }
     }
 
-    /* ---- Container & UI (Priority Settings Menu) ---- */
-
     public void openMenu(ServerPlayer player) {
         player.openMenu(this, buf -> buf.writeBlockPos(this.worldPosition));
     }
@@ -180,15 +191,8 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
     @Nullable
     @Override
     public AbstractContainerMenu createMenu(int windowId, Inventory playerInventory, Player player) {
-        return new PriorityMenu(ModMenus.PRIORITY_MENU.get(), windowId, playerInventory, this);
+        return new ExchangeCorePriorityMenu(windowId, playerInventory, this, this.containerData);
     }
-
-    @Override
-    public ItemStack getMainMenuIcon() {
-        return new ItemStack(this.getBlockState().getBlock());
-    }
-
-    /* ---- Persistence ---- */
 
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
