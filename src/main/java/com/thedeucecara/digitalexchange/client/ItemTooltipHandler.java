@@ -23,13 +23,49 @@ public class ItemTooltipHandler {
         ItemStack stack = event.getItemStack();
         if (stack.isEmpty()) return;
 
-        long bitValue = BitValueCalculator.calculate(stack);
-        if (bitValue > 0) {
-            event.getToolTip().add(
-                    Component.literal("Bits: ")
-                            .withStyle(ChatFormatting.DARK_AQUA)
-                            .append(Component.literal(FORMATTER.format(bitValue)).withStyle(ChatFormatting.AQUA))
-            );
+        long unitDeposit = BitValueCalculator.calculateInputValue(stack);
+        long unitWithdraw = BitValueCalculator.calculateExtractCost(stack);
+        int count = stack.getCount();
+
+        if (unitDeposit > 0 || unitWithdraw > 0) {
+            if (unitDeposit == unitWithdraw) {
+                // Single Item Cost
+                Component line = Component.literal("Bits: ")
+                        .withStyle(ChatFormatting.DARK_AQUA)
+                        .append(Component.literal(FORMATTER.format(unitWithdraw)).withStyle(ChatFormatting.AQUA));
+                
+                // Stack Multiplier (if holding more than 1)
+                if (count > 1) {
+                    long totalWithdraw = unitWithdraw * count;
+                    line = line.copy().append(
+                            Component.literal(" (" + FORMATTER.format(totalWithdraw) + " total)")
+                                     .withStyle(ChatFormatting.DARK_GRAY)
+                    );
+                }
+                event.getToolTip().add(line);
+            } else {
+                // Split Difficulty (Deposit vs Withdraw)
+                Component depLine = Component.literal("Deposit: ")
+                        .withStyle(ChatFormatting.DARK_AQUA)
+                        .append(Component.literal(FORMATTER.format(unitDeposit) + " Bits").withStyle(ChatFormatting.AQUA));
+                
+                Component withLine = Component.literal("Withdraw: ")
+                        .withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal(FORMATTER.format(unitWithdraw) + " Bits").withStyle(ChatFormatting.YELLOW));
+
+                if (count > 1) {
+                    depLine = depLine.copy().append(
+                            Component.literal(" (" + FORMATTER.format(unitDeposit * count) + " total)")
+                                     .withStyle(ChatFormatting.DARK_GRAY)
+                    );
+                    withLine = withLine.copy().append(
+                            Component.literal(" (" + FORMATTER.format(unitWithdraw * count) + " total)")
+                                     .withStyle(ChatFormatting.DARK_GRAY)
+                    );
+                }
+                event.getToolTip().add(depLine);
+                event.getToolTip().add(withLine);
+            }
         }
     }
 }
