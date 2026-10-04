@@ -74,13 +74,15 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
                 .addService(IStorageProvider.class, this);
     }
 
-    @Override
-    public void onLoad() {
-        super.onLoad();
-        if (this.level != null && !this.level.isClientSide()) {
-            this.mainNode.create(this.level, this.worldPosition);
-        }
+   @Override
+public void onLoad() {
+    super.onLoad();
+    if (this.level != null && !this.level.isClientSide()) {
+        this.mainNode.create(this.level, this.worldPosition);
+        // Force adjacent AE2 cables/controllers to recognize the newly connected host
+        this.level.updateNeighborsAt(this.worldPosition, this.getBlockState().getBlock());
     }
+}
 
     @Override
     public void setRemoved() {
