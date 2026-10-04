@@ -67,4 +67,8 @@ public class ExchangeCorePriorityMenu extends AbstractContainerMenu {
     public boolean stillValid(Player player) {
         return this.blockEntity != null && !this.blockEntity.isRemoved();
     }
+    
+    public ExchangeCoreBlockEntity getBlockEntity() {
+        return this.blockEntity;
+    }
 }
