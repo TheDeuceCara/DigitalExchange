@@ -45,18 +45,18 @@ public class ExchangeCoreBlock extends Block implements EntityBlock {
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (!level.isClientSide()) {
-            for (Direction dir : Direction.values()) {
+            if (!level.isClientSide()) {
+                for (Direction dir : Direction.values()) {
                 level.neighborChanged(pos.relative(dir), this, pos);
-            }
         }
     }
+}
 
     @Override
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
         super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
-        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ExchangeCoreBlockEntity core) {
-            core.getGridNode(Direction.UP);
+            if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ExchangeCoreBlockEntity core) {
+                core.getGridNode(Direction.UP);
         }
     }
 }
