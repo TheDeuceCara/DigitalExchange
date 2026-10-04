@@ -23,8 +23,8 @@ public class ExchangeCoreBlock extends Block implements EntityBlock {
         super(BlockBehaviour.Properties.of()
                 .strength(3.5f, 6.0f)
                 .sound(SoundType.METAL)
+                .noOcclusion() // CRITICAL: Allows AE2 cable shapes to connect across the block boundary
                 .requiresCorrectToolForDrops());
-    }
 
     @Nullable
     @Override
