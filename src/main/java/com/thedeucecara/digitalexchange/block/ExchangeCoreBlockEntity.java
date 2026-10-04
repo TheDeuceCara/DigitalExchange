@@ -2,7 +2,6 @@ package com.thedeucecara.digitalexchange.block;
 
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
-import appeng.api.networking.IGridConnectedBlockEntity;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.networking.IManagedGridNode;
@@ -38,7 +37,6 @@ import java.util.List;
 
 public class ExchangeCoreBlockEntity extends BlockEntity implements 
         IInWorldGridNodeHost, 
-        IGridConnectedBlockEntity,
         IExchangeCore, 
         IStorageProvider, 
         MenuProvider {
@@ -74,7 +72,6 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         super(ModBlockEntities.EXCHANGE_CORE.get(), pos, state);
         this.inventory = new ExchangeMEInventory(this);
 
-        // Expose grid node on all 6 sides with idle power and channel requirement
         this.mainNode = GridHelper.createManagedNode(this, new ExchangeGridListener())
                 .setFlags(GridFlags.REQUIRE_CHANNEL)
                 .setExposedOnSides(EnumSet.allOf(Direction.class))
@@ -110,12 +107,10 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
     }
 
     @Nullable
-    @Override
     public IGridNode getGridNode() {
         return this.mainNode.getNode();
     }
 
-    @Override
     public IManagedGridNode getMainNode() {
         return this.mainNode;
     }
