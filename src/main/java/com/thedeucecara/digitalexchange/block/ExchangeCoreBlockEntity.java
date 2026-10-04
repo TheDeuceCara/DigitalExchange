@@ -76,6 +76,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
                 .setFlags(GridFlags.REQUIRE_CHANNEL)
                 .setExposedOnSides(EnumSet.allOf(Direction.class))
                 .setIdlePowerUsage(1.0)
+                .setVisualRepresentation(new ItemStack(this.getBlockState().getBlock()))
                 .addService(IStorageProvider.class, this);
     }
 
@@ -84,6 +85,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         super.onLoad();
         if (this.level != null && !this.level.isClientSide()) {
             this.mainNode.create(this.level, this.worldPosition);
+            // Notify neighbors so cables and controllers check this position immediately
             this.level.updateNeighborsAt(this.worldPosition, this.getBlockState().getBlock());
         }
     }
@@ -93,7 +95,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         super.setRemoved();
         this.mainNode.destroy();
     }
-
+        
     @Override
     public void onChunkUnloaded() {
         super.onChunkUnloaded();
@@ -105,7 +107,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
     public IGridNode getGridNode(Direction dir) {
         return this.mainNode.getNode();
     }
-
+        
     public IManagedGridNode getMainNode() {
         return this.mainNode;
     }
