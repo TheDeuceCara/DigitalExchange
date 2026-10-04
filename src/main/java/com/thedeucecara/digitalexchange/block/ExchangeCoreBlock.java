@@ -10,7 +10,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
-import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -25,11 +24,6 @@ public class ExchangeCoreBlock extends Block implements EntityBlock {
                 .strength(3.5f, 6.0f)
                 .sound(SoundType.METAL)
                 .requiresCorrectToolForDrops());
-    }
-
-    @Override
-    public RenderShape getRenderShape(BlockState state) {
-        return RenderShape.MODEL;
     }
 
     @Nullable
@@ -51,9 +45,12 @@ public class ExchangeCoreBlock extends Block implements EntityBlock {
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (!level.isClientSide()) {
-            if (placer instanceof Player player && level.getBlockEntity(pos) instanceof ExchangeCoreBlockEntity core) {
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ExchangeCoreBlockEntity core) {
+            if (placer instanceof Player player) {
                 core.getMainNode().setOwningPlayer(player);
+            }
+            if (!core.getMainNode().isReady()) {
+                core.getMainNode().create(level, pos);
             }
             for (Direction dir : Direction.values()) {
                 level.neighborChanged(pos.relative(dir), this, pos);
@@ -64,7 +61,10 @@ public class ExchangeCoreBlock extends Block implements EntityBlock {
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        if (!level.isClientSide()) {
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ExchangeCoreBlockEntity core) {
+            if (!core.getMainNode().isReady()) {
+                core.getMainNode().create(level, pos);
+            }
             for (Direction dir : Direction.values()) {
                 level.neighborChanged(pos.relative(dir), this, pos);
             }
