@@ -68,7 +68,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         }
     };
 
-    public ExchangeCoreBlockEntity(BlockPos pos, BlockState state) {
+   public ExchangeCoreBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.EXCHANGE_CORE.get(), pos, state);
         this.inventory = new ExchangeMEInventory(this);
 
@@ -76,6 +76,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
                 .setFlags(GridFlags.REQUIRE_CHANNEL, GridFlags.PREFERRED)
                 .setExposedOnSides(EnumSet.allOf(Direction.class))
                 .setIdlePowerUsage(1.0)
+                .setVisualRepresentation(new ItemStack(ModBlocks.EXCHANGE_CORE_ITEM.get()))
                 .addService(IStorageProvider.class, this);
     }
         
