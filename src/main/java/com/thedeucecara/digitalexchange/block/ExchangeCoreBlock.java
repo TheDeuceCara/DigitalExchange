@@ -24,7 +24,6 @@ public class ExchangeCoreBlock extends Block implements EntityBlock {
         super(BlockBehaviour.Properties.of()
                 .strength(3.5f, 6.0f)
                 .sound(SoundType.METAL)
-                .noOcclusion()
                 .requiresCorrectToolForDrops());
     }
 
@@ -52,12 +51,9 @@ public class ExchangeCoreBlock extends Block implements EntityBlock {
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ExchangeCoreBlockEntity core) {
-            if (placer instanceof Player player) {
+        if (!level.isClientSide()) {
+            if (placer instanceof Player player && level.getBlockEntity(pos) instanceof ExchangeCoreBlockEntity core) {
                 core.getMainNode().setOwningPlayer(player);
-            }
-            if (!core.getMainNode().isReady()) {
-                core.getMainNode().create(level, pos);
             }
             for (Direction dir : Direction.values()) {
                 level.neighborChanged(pos.relative(dir), this, pos);
@@ -68,10 +64,7 @@ public class ExchangeCoreBlock extends Block implements EntityBlock {
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ExchangeCoreBlockEntity core) {
-            if (!core.getMainNode().isReady()) {
-                core.getMainNode().create(level, pos);
-            }
+        if (!level.isClientSide()) {
             for (Direction dir : Direction.values()) {
                 level.neighborChanged(pos.relative(dir), this, pos);
             }
