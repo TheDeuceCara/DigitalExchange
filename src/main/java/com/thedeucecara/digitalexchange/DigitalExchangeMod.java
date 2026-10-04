@@ -3,6 +3,7 @@ package com.thedeucecara.digitalexchange;
 import com.thedeucecara.digitalexchange.config.ExchangeConfig;
 import com.thedeucecara.digitalexchange.init.ModBlockEntities;
 import com.thedeucecara.digitalexchange.init.ModBlocks;
+import com.thedeucecara.digitalexchange.init.ModMenus;
 import com.thedeucecara.digitalexchange.integration.ae2.DynamicRecipeGraph;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -42,16 +43,17 @@ public class DigitalExchangeMod {
         ModBlocks.BLOCKS.register(modEventBus);
         ModBlocks.ITEMS.register(modEventBus);
         ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        ModMenus.MENUS.register(modEventBus);
         CREATIVE_MODE_TABS.register(modEventBus);
 
         modEventBus.addListener(this::addCreative);
         modEventBus.addListener(this::registerCapabilities);
+        modEventBus.addListener(com.thedeucecara.digitalexchange.client.DigitalExchangeClient::registerScreens);
 
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
     }
 
     private void registerCapabilities(RegisterCapabilitiesEvent event) {
-        // Expose standard ItemHandler capability to AE2 Storage Bus and all other mods
         event.registerBlockEntity(
                 Capabilities.ItemHandler.BLOCK,
                 ModBlockEntities.EXCHANGE_CORE.get(),
