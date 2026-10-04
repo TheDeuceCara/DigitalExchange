@@ -11,6 +11,13 @@ import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 public class BitValueCalculator {
 
+    /**
+     * Legacy/default calculate routing
+     */
+    public static long calculate(ItemStack stack) {
+        return calculateBaseValue(stack);
+    }
+
     public static long calculateBaseValue(ItemStack stack) {
         if (stack.isEmpty()) return 0L;
 
