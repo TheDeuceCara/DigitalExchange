@@ -19,8 +19,6 @@ import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
-import appeng.api.networking.GridHelper;
-import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 
 @Mod(DigitalExchangeMod.MODID)
 public class DigitalExchangeMod {
@@ -47,7 +45,6 @@ public class DigitalExchangeMod {
         CREATIVE_MODE_TABS.register(modEventBus);
 
         modEventBus.addListener(this::addCreative);
-        modEventBus.addListener(this::registerCapabilities);
         modEventBus.addListener(com.thedeucecara.digitalexchange.client.DigitalExchangeClient::registerScreens);
 
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
@@ -62,12 +59,4 @@ public class DigitalExchangeMod {
     private void onServerStarted(ServerStartedEvent event) {
         DynamicRecipeGraph.computeGraph(event.getServer());
     }
-    
-    private void registerCapabilities(RegisterCapabilitiesEvent event) {
-    event.registerBlockEntity(
-            GridHelper.GRID_NODE_HOST_CAPABILITY,
-            ModBlockEntities.EXCHANGE_CORE.get(),
-            (be, side) -> be
-    );
-}
 }
