@@ -1,2 +1,2 @@
 # DigitalExchange
-Ae2 addon to allow item exchange digitally 
+Allow item exchange digitally , connect with a storage mod
