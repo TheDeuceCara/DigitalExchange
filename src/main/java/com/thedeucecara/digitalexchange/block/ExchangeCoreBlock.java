@@ -10,6 +10,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -23,8 +24,14 @@ public class ExchangeCoreBlock extends Block implements EntityBlock {
         super(BlockBehaviour.Properties.of()
                 .strength(3.5f, 6.0f)
                 .sound(SoundType.METAL)
-                .noOcclusion() // CRITICAL: Allows AE2 cable shapes to connect across the block boundary
+                .noOcclusion()
                 .requiresCorrectToolForDrops());
+    }
+
+    @Override
+    public RenderShape getRenderShape(BlockState state) {
+        return RenderShape.MODEL;
+    }
 
     @Nullable
     @Override
