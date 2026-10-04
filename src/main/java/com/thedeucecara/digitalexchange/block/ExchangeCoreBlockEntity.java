@@ -69,18 +69,18 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         }
     };
 
-   public ExchangeCoreBlockEntity(BlockPos pos, BlockState state) {
+    public ExchangeCoreBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.EXCHANGE_CORE.get(), pos, state);
         this.inventory = new ExchangeMEInventory(this);
 
         this.mainNode = GridHelper.createManagedNode(this, new ExchangeGridListener())
-                .setFlags(GridFlags.REQUIRE_CHANNEL, GridFlags.PREFERRED)
+                .setFlags(GridFlags.REQUIRE_CHANNEL)
                 .setExposedOnSides(EnumSet.allOf(Direction.class))
                 .setIdlePowerUsage(1.0)
                 .setVisualRepresentation(new ItemStack(ModBlocks.EXCHANGE_CORE_ITEM.get()))
                 .addService(IStorageProvider.class, this);
     }
-        
+
     @Override
     public void onLoad() {
         super.onLoad();
