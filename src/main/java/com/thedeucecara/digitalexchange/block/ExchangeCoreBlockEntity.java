@@ -8,6 +8,7 @@ import appeng.api.networking.IManagedGridNode;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
 import com.thedeucecara.digitalexchange.init.ModBlockEntities;
+import com.thedeucecara.digitalexchange.init.ModBlocks;
 import com.thedeucecara.digitalexchange.integration.ae2.BitValueCalculator;
 import com.thedeucecara.digitalexchange.integration.ae2.ExchangeMEInventory;
 import com.thedeucecara.digitalexchange.integration.ae2.IExchangeCore;
