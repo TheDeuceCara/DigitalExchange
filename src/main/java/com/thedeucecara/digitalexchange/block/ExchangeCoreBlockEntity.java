@@ -2,6 +2,7 @@ package com.thedeucecara.digitalexchange.block;
 
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
+import appeng.api.networking.IGridConnectedBlockEntity;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.networking.IManagedGridNode;
@@ -32,10 +33,12 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 
 public class ExchangeCoreBlockEntity extends BlockEntity implements 
         IInWorldGridNodeHost, 
+        IGridConnectedBlockEntity,
         IExchangeCore, 
         IStorageProvider, 
         MenuProvider {
@@ -55,7 +58,9 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         @Override
         public void set(int index, int value) {
             if (index == 0) {
-                setPriority(value);
+                priority = value;
+                saveChanges();
+                notifyGridOfStorageChange();
             }
         }
 
@@ -68,13 +73,16 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
     public ExchangeCoreBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.EXCHANGE_CORE.get(), pos, state);
         this.inventory = new ExchangeMEInventory(this);
+
+        // Expose grid node on all 6 sides with idle power and channel requirement
         this.mainNode = GridHelper.createManagedNode(this, new ExchangeGridListener())
                 .setFlags(GridFlags.REQUIRE_CHANNEL)
-                .setVisualRepresentation(new ItemStack(this.getBlockState().getBlock()))
+                .setExposedOnSides(EnumSet.allOf(Direction.class))
+                .setIdlePowerUsage(1.0)
                 .addService(IStorageProvider.class, this);
     }
 
-   @Override
+    @Override
     public void onLoad() {
         super.onLoad();
         if (this.level != null && !this.level.isClientSide()) {
@@ -95,9 +103,21 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         this.mainNode.destroy();
     }
 
+    @Nullable
     @Override
     public IGridNode getGridNode(Direction dir) {
         return this.mainNode.getNode();
+    }
+
+    @Nullable
+    @Override
+    public IGridNode getGridNode() {
+        return this.mainNode.getNode();
+    }
+
+    @Override
+    public IManagedGridNode getMainNode() {
+        return this.mainNode;
     }
 
     @Override
@@ -166,7 +186,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
 
     @Override
     public long calculateValue(ItemStack stack) {
-        return BitValueCalculator.calculate(stack);
+        return BitValueCalculator.calculateBaseValue(stack);
     }
 
     public void saveChanges() {
