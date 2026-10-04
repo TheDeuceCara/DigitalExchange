@@ -1,12 +1,11 @@
 package com.thedeucecara.digitalexchange.block;
 
 import appeng.api.networking.GridFlags;
-import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
-import appeng.api.networking.IInWorldGridNodeHost;
-import appeng.api.networking.IManagedGridNode;
+import appeng.api.networking.IGridNodeListener;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
+import appeng.blockentity.grid.AENetworkBlockEntity;
 import com.thedeucecara.digitalexchange.init.ModBlockEntities;
 import com.thedeucecara.digitalexchange.integration.ae2.BitValueCalculator;
 import com.thedeucecara.digitalexchange.integration.ae2.ExchangeMEInventory;
@@ -27,7 +26,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,13 +33,11 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
-public class ExchangeCoreBlockEntity extends BlockEntity implements 
-        IInWorldGridNodeHost, 
+public class ExchangeCoreBlockEntity extends AENetworkBlockEntity implements 
         IExchangeCore, 
         IStorageProvider, 
         MenuProvider {
 
-    private final IManagedGridNode mainNode;
     private final ExchangeMEInventory inventory;
     private long storedBits = 0L;
     private int priority = 0;
@@ -72,47 +68,12 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         super(ModBlockEntities.EXCHANGE_CORE.get(), pos, state);
         this.inventory = new ExchangeMEInventory(this);
 
-        this.mainNode = GridHelper.createManagedNode(this, new ExchangeGridListener())
+        // AENetworkBlockEntity automatically manages the mainNode lifecycle!
+        this.getMainNode()
                 .setFlags(GridFlags.REQUIRE_CHANNEL)
                 .setExposedOnSides(EnumSet.allOf(Direction.class))
                 .setIdlePowerUsage(1.0)
                 .addService(IStorageProvider.class, this);
-    }
-
-    @Override
-    public void onLoad() {
-        super.onLoad();
-        if (this.level != null && !this.level.isClientSide()) {
-            if (!this.mainNode.isReady()) {
-                this.mainNode.create(this.level, this.worldPosition);
-            }
-            // Notify neighbors across all 6 faces so adjacent cables rebuild their connection shapes
-            for (Direction dir : Direction.values()) {
-                this.level.neighborChanged(this.worldPosition.relative(dir), this.getBlockState().getBlock(), this.worldPosition);
-            }
-        }
-    }
-
-    @Override
-    public void setRemoved() {
-        super.setRemoved();
-        this.mainNode.destroy();
-    }
-
-    @Override
-    public void onChunkUnloaded() {
-        super.onChunkUnloaded();
-        this.mainNode.destroy();
-    }
-
-    @Nullable
-    @Override
-    public IGridNode getGridNode(Direction dir) {
-        return this.mainNode.getNode();
-    }
-
-    public IManagedGridNode getMainNode() {
-        return this.mainNode;
     }
 
     @Override
@@ -131,8 +92,8 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
     }
 
     public void notifyGridOfStorageChange() {
-        if (this.mainNode.isReady()) {
-            var grid = this.mainNode.getGrid();
+        if (this.getMainNode().isReady()) {
+            var grid = this.getMainNode().getGrid();
             if (grid != null) {
                 grid.getStorageService().refreshGlobalStorageProvider(this);
             }
@@ -184,6 +145,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         return BitValueCalculator.calculateBaseValue(stack);
     }
 
+    @Override
     public void saveChanges() {
         this.setChanged();
         if (this.level != null && !this.level.isClientSide()) {
@@ -207,7 +169,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+    public void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
         tag.putLong("StoredBits", this.storedBits);
         tag.putInt("Priority", this.priority);
@@ -223,7 +185,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+    public void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         this.storedBits = tag.getLong("StoredBits");
         this.priority = tag.getInt("Priority");
@@ -235,13 +197,6 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
             ItemStack.OPTIONAL_CODEC.parse(ops, list.get(i))
                     .resultOrPartial()
                     .ifPresent(this.learnedItems::add);
-        }
-    }
-
-    private static class ExchangeGridListener implements appeng.api.networking.IGridNodeListener<ExchangeCoreBlockEntity> {
-        @Override
-        public void onSaveChanges(ExchangeCoreBlockEntity nodeOwner, IGridNode node) {
-            nodeOwner.saveChanges();
         }
     }
 }
