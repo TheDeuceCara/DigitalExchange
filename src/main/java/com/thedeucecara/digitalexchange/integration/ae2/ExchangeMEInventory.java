@@ -22,14 +22,10 @@ public class ExchangeMEInventory implements MEStorage {
         long currentBits = core.getStoredBits();
 
         for (ItemStack learned : core.getLearnedItems()) {
-            long unitCost = core.calculateValue(learned);
+            long unitCost = BitValueCalculator.calculateExtractCost(learned);
             if (unitCost <= 0) continue;
 
-            // Compute affordable count from bits balance
             long affordable = currentBits / unitCost;
-            
-            // If the player has bits, show exact affordable amount.
-            // If bits are 0, we advertise 0 or don't register so phantom pulls don't occur.
             if (affordable > 0) {
                 out.add(AEItemKey.of(learned), affordable);
             }
@@ -41,7 +37,7 @@ public class ExchangeMEInventory implements MEStorage {
         if (!(what instanceof AEItemKey itemKey)) return 0;
 
         ItemStack stack = itemKey.toStack();
-        long unitCost = core.calculateValue(stack);
+        long unitCost = BitValueCalculator.calculateExtractCost(stack);
         if (unitCost <= 0) return 0;
 
         long currentBits = core.getStoredBits();
@@ -59,11 +55,11 @@ public class ExchangeMEInventory implements MEStorage {
         if (!(what instanceof AEItemKey itemKey)) return 0;
 
         ItemStack stack = itemKey.toStack((int) Math.min(amount, 64));
-        long unitCost = core.calculateValue(stack);
-        if (unitCost <= 0) return 0;
+        long unitGain = BitValueCalculator.calculateInputValue(stack);
+        if (unitGain <= 0) return 0;
 
         if (mode == Actionable.MODULATE) {
-            core.addBits(unitCost * amount);
+            core.addBits(unitGain * amount);
             core.learnItem(stack);
         }
         return amount;
