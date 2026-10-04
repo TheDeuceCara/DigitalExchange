@@ -18,26 +18,26 @@ public class ExchangeItemHandler implements IItemHandler {
 
     @Override
     public int getSlots() {
-        // Slot 0 to N-1: All learned items available for extraction
-        // Slot N: A dedicated insertion slot for depositing items to earn Bits
-        return core.getLearnedItems().size() + 1;
+        // Slots 0 to N-1: learned item extraction slots
+        // Slot N: insertion deposit slot
+        return this.core.getLearnedItems().size() + 1;
     }
 
     @Override
     public @NotNull ItemStack getStackInSlot(int slot) {
-        List<ItemStack> learned = core.getLearnedItems();
+        List<ItemStack> learned = this.core.getLearnedItems();
         if (slot >= 0 && slot < learned.size()) {
             ItemStack template = learned.get(slot);
             long unitCost = BitValueCalculator.calculateExtractCost(template);
             if (unitCost <= 0) return ItemStack.EMPTY;
 
-            long affordable = core.getStoredBits() / unitCost;
+            long affordable = this.core.getStoredBits() / unitCost;
             if (affordable <= 0) return ItemStack.EMPTY;
 
             int count = (int) Math.min(affordable, template.getMaxStackSize());
             return template.copyWithCount(count);
         }
-        return ItemStack.EMPTY; // Insertion slot appears empty
+        return ItemStack.EMPTY;
     }
 
     @Override
@@ -46,22 +46,21 @@ public class ExchangeItemHandler implements IItemHandler {
 
         long unitValue = BitValueCalculator.calculateInputValue(stack);
         if (unitValue <= 0) {
-            // Item has no value or cannot be dissolved; reject insertion
             return stack;
         }
 
         if (!simulate) {
             long totalGain = unitValue * stack.getCount();
-            core.addBits(totalGain);
-            core.learnItem(stack); // Automatically learns new items on deposit
+            this.core.addBits(totalGain);
+            this.core.learnItem(stack);
         }
 
-        return ItemStack.EMPTY; // Fully accepted and converted to Bits
+        return ItemStack.EMPTY;
     }
 
     @Override
     public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
-        List<ItemStack> learned = core.getLearnedItems();
+        List<ItemStack> learned = this.core.getLearnedItems();
         if (slot < 0 || slot >= learned.size() || amount <= 0) {
             return ItemStack.EMPTY;
         }
@@ -70,12 +69,12 @@ public class ExchangeItemHandler implements IItemHandler {
         long unitCost = BitValueCalculator.calculateExtractCost(template);
         if (unitCost <= 0) return ItemStack.EMPTY;
 
-        long maxAffordable = core.getStoredBits() / unitCost;
+        long maxAffordable = this.core.getStoredBits() / unitCost;
         int toExtract = (int) Math.min(amount, Math.min(maxAffordable, template.getMaxStackSize()));
         if (toExtract <= 0) return ItemStack.EMPTY;
 
         if (!simulate) {
-            core.deductBits(toExtract * unitCost);
+            this.core.deductBits(toExtract * unitCost);
         }
 
         return template.copyWithCount(toExtract);
@@ -83,7 +82,7 @@ public class ExchangeItemHandler implements IItemHandler {
 
     @Override
     public int getSlotLimit(int slot) {
-        List<ItemStack> learned = core.getLearnedItems();
+        List<ItemStack> learned = this.core.getLearnedItems();
         if (slot >= 0 && slot < learned.size()) {
             return learned.get(slot).getMaxStackSize();
         }
@@ -92,7 +91,6 @@ public class ExchangeItemHandler implements IItemHandler {
 
     @Override
     public boolean isItemValid(int slot, @NotNull ItemStack stack) {
-        // Any item with a positive bit value can be inserted
         return BitValueCalculator.calculateInputValue(stack) > 0;
     }
 }
