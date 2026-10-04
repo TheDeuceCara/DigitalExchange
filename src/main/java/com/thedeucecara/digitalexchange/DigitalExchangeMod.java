@@ -34,15 +34,17 @@ public class DigitalExchangeMod {
                     }).build());
 
    public DigitalExchangeMod(IEventBus modEventBus) {
-    ModBlocks.BLOCKS.register(modEventBus);
-    ModBlocks.ITEMS.register(modEventBus);
-    ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
-    ModMenus.MENUS.register(modEventBus);
-    CREATIVE_MODE_TABS.register(modEventBus);
+        ModBlocks.BLOCKS.register(modEventBus);
+        ModBlocks.ITEMS.register(modEventBus);
+        ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        ModMenus.MENUS.register(modEventBus);
+        CREATIVE_MODE_TABS.register(modEventBus);
 
-    modEventBus.addListener(this::addCreative);
-    NeoForge.EVENT_BUS.addListener(this::onServerStarted);
-}
+        modEventBus.addListener(this::addCreative);
+        modEventBus.addListener(com.thedeucecara.digitalexchange.client.DigitalExchangeClient::registerScreens);
+
+        NeoForge.EVENT_BUS.addListener(this::onServerStarted);
+    }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
