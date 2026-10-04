@@ -68,7 +68,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         }
     };
 
-    public ExchangeCoreBlockEntity(BlockPos pos, BlockState state) {
+   public ExchangeCoreBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.EXCHANGE_CORE.get(), pos, state);
         this.inventory = new ExchangeMEInventory(this);
 
@@ -79,7 +79,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
                 .addService(IStorageProvider.class, this);
     }
 
-    @Override
+   @Override
     public void onLoad() {
         super.onLoad();
         if (this.level != null && !this.level.isClientSide()) {
