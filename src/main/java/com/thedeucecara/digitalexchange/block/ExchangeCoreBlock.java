@@ -45,12 +45,12 @@ public class ExchangeCoreBlock extends Block implements EntityBlock {
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (!level.isClientSide()) {
-            if (level.getBlockEntity(pos) instanceof ExchangeCoreBlockEntity core) {
-                // Ensure owner is set if placer is player
-                if (placer instanceof Player player) {
-                    core.getMainNode().setOwningPlayer(player);
-                }
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ExchangeCoreBlockEntity core) {
+            if (placer instanceof Player player) {
+                core.getMainNode().setOwningPlayer(player);
+            }
+            if (!core.getMainNode().isReady()) {
+                core.getMainNode().create(level, pos);
             }
             for (Direction dir : Direction.values()) {
                 level.neighborChanged(pos.relative(dir), this, pos);
@@ -61,7 +61,10 @@ public class ExchangeCoreBlock extends Block implements EntityBlock {
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        if (!level.isClientSide()) {
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ExchangeCoreBlockEntity core) {
+            if (!core.getMainNode().isReady()) {
+                core.getMainNode().create(level, pos);
+            }
             for (Direction dir : Direction.values()) {
                 level.neighborChanged(pos.relative(dir), this, pos);
             }
@@ -72,8 +75,7 @@ public class ExchangeCoreBlock extends Block implements EntityBlock {
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
         super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
         if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ExchangeCoreBlockEntity core) {
-            // Wake up node if level didn't trigger it yet
-            if (core.getMainNode().getNode() == null) {
+            if (!core.getMainNode().isReady()) {
                 core.getMainNode().create(level, pos);
             }
         }
