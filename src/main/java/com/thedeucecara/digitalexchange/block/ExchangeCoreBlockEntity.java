@@ -68,7 +68,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         }
     };
 
-   public ExchangeCoreBlockEntity(BlockPos pos, BlockState state) {
+    public ExchangeCoreBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.EXCHANGE_CORE.get(), pos, state);
         this.inventory = new ExchangeMEInventory(this);
 
@@ -76,17 +76,20 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
                 .setFlags(GridFlags.REQUIRE_CHANNEL)
                 .setExposedOnSides(EnumSet.allOf(Direction.class))
                 .setIdlePowerUsage(1.0)
-                .setVisualRepresentation(new ItemStack(this.getBlockState().getBlock()))
                 .addService(IStorageProvider.class, this);
     }
 
-   @Override
+    @Override
     public void onLoad() {
         super.onLoad();
         if (this.level != null && !this.level.isClientSide()) {
-            this.mainNode.create(this.level, this.worldPosition);
-            // Notify neighbors so cables and controllers check this position immediately
-            this.level.updateNeighborsAt(this.worldPosition, this.getBlockState().getBlock());
+            if (!this.mainNode.isReady()) {
+                this.mainNode.create(this.level, this.worldPosition);
+            }
+            // Notify neighbors across all 6 faces so adjacent cables rebuild their connection shapes
+            for (Direction dir : Direction.values()) {
+                this.level.neighborChanged(this.worldPosition.relative(dir), this.getBlockState().getBlock(), this.worldPosition);
+            }
         }
     }
 
@@ -95,7 +98,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
         super.setRemoved();
         this.mainNode.destroy();
     }
-        
+
     @Override
     public void onChunkUnloaded() {
         super.onChunkUnloaded();
@@ -107,7 +110,7 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements
     public IGridNode getGridNode(Direction dir) {
         return this.mainNode.getNode();
     }
-        
+
     public IManagedGridNode getMainNode() {
         return this.mainNode;
     }
