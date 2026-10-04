@@ -32,8 +32,9 @@ public class ExchangeItemHandler implements IItemHandler {
             long affordable = this.core.getStoredBits() / unitCost;
             if (affordable <= 0) return ItemStack.EMPTY;
 
-            int count = (int) Math.min(affordable, template.getMaxStackSize());
-            return template.copyWithCount(count);
+            // Clamp total affordable items to Integer.MAX_VALUE rather than 64
+            int displayCount = (int) Math.min(affordable, (long) Integer.MAX_VALUE);
+            return template.copyWithCount(displayCount);
         }
         return ItemStack.EMPTY;
     }
@@ -68,7 +69,8 @@ public class ExchangeItemHandler implements IItemHandler {
         if (unitCost <= 0) return ItemStack.EMPTY;
 
         long maxAffordable = this.core.getStoredBits() / unitCost;
-        int toExtract = (int) Math.min(amount, Math.min(maxAffordable, template.getMaxStackSize()));
+        long toExtractLong = Math.min((long) amount, maxAffordable);
+        int toExtract = (int) Math.min(toExtractLong, (long) Integer.MAX_VALUE);
         if (toExtract <= 0) return ItemStack.EMPTY;
 
         if (!simulate) {
@@ -80,11 +82,7 @@ public class ExchangeItemHandler implements IItemHandler {
 
     @Override
     public int getSlotLimit(int slot) {
-        List<ItemStack> learned = this.core.getLearnedItems();
-        if (slot >= 0 && slot < learned.size()) {
-            return learned.get(slot).getMaxStackSize();
-        }
-        return 64;
+        return Integer.MAX_VALUE;
     }
 
     @Override
