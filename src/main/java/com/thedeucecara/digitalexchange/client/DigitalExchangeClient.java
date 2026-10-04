@@ -1,6 +1,5 @@
 package com.thedeucecara.digitalexchange.client;
 
-import appeng.client.gui.implementations.PriorityScreen;
 import com.thedeucecara.digitalexchange.DigitalExchangeMod;
 import com.thedeucecara.digitalexchange.init.ModMenus;
 import net.neoforged.api.distmarker.Dist;
@@ -13,6 +12,6 @@ public class DigitalExchangeClient {
 
     @SubscribeEvent
     public static void registerScreens(RegisterMenuScreensEvent event) {
-        event.register(ModMenus.PRIORITY_MENU.get(), PriorityScreen::new);
+        event.register(ModMenus.PRIORITY_MENU.get(), ExchangeCorePriorityScreen::new);
     }
 }
