@@ -20,13 +20,16 @@ public class ExchangeMEInventory implements MEStorage {
     @Override
     public void getAvailableStacks(KeyCounter out) {
         long currentBits = core.getStoredBits();
-        if (currentBits <= 0) return;
 
         for (ItemStack learned : core.getLearnedItems()) {
             long unitCost = core.calculateValue(learned);
             if (unitCost <= 0) continue;
 
+            // Compute affordable count from bits balance
             long affordable = currentBits / unitCost;
+            
+            // If the player has bits, show exact affordable amount.
+            // If bits are 0, we advertise 0 or don't register so phantom pulls don't occur.
             if (affordable > 0) {
                 out.add(AEItemKey.of(learned), affordable);
             }
@@ -68,6 +71,6 @@ public class ExchangeMEInventory implements MEStorage {
 
     @Override
     public Component getDescription() {
-        return Component.literal("Digital Exchange Network Core");
+        return Component.translatable("block.digitalexchange.exchange_core");
     }
 }
