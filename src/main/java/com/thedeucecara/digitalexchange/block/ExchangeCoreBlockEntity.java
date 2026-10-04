@@ -1,5 +1,6 @@
 package com.thedeucecara.digitalexchange.block;
 
+import com.thedeucecara.digitalexchange.data.ExchangeSavedData;
 import com.thedeucecara.digitalexchange.init.ModBlockEntities;
 import com.thedeucecara.digitalexchange.integration.ExchangeItemHandler;
 import com.thedeucecara.digitalexchange.integration.ae2.BitValueCalculator;
@@ -8,10 +9,8 @@ import com.thedeucecara.digitalexchange.menu.ExchangeCorePriorityMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
@@ -30,9 +29,7 @@ import java.util.List;
 public class ExchangeCoreBlockEntity extends BlockEntity implements IExchangeCore, MenuProvider {
 
     private final ExchangeItemHandler itemHandler;
-    private long storedBits = 0L;
     private int priority = 0;
-    private final List<ItemStack> learnedItems = new ArrayList<>();
 
     protected final ContainerData containerData = new ContainerData() {
         @Override
@@ -63,6 +60,13 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements IExchangeCor
         return this.itemHandler;
     }
 
+    private ExchangeSavedData getData() {
+        if (this.level instanceof ServerLevel serverLevel) {
+            return ExchangeSavedData.get(serverLevel);
+        }
+        return null;
+    }
+
     public int getPriority() {
         return this.priority;
     }
@@ -74,19 +78,23 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements IExchangeCor
 
     @Override
     public long getStoredBits() {
-        return this.storedBits;
+        ExchangeSavedData data = getData();
+        return data != null ? data.getStoredBits() : 0L;
     }
 
     @Override
     public void addBits(long amount) {
-        this.storedBits += amount;
-        this.saveChanges();
+        ExchangeSavedData data = getData();
+        if (data != null) {
+            data.addBits(amount);
+            this.saveChanges();
+        }
     }
 
     @Override
     public boolean deductBits(long amount) {
-        if (this.storedBits >= amount) {
-            this.storedBits -= amount;
+        ExchangeSavedData data = getData();
+        if (data != null && data.deductBits(amount)) {
             this.saveChanges();
             return true;
         }
@@ -95,18 +103,17 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements IExchangeCor
 
     @Override
     public void learnItem(ItemStack stack) {
-        for (ItemStack existing : this.learnedItems) {
-            if (ItemStack.isSameItemSameComponents(existing, stack)) {
-                return;
-            }
+        ExchangeSavedData data = getData();
+        if (data != null) {
+            data.learnItem(stack);
+            this.saveChanges();
         }
-        this.learnedItems.add(stack.copyWithCount(1));
-        this.saveChanges();
     }
 
     @Override
     public List<ItemStack> getLearnedItems() {
-        return this.learnedItems;
+        ExchangeSavedData data = getData();
+        return data != null ? data.getLearnedItems() : new ArrayList<>();
     }
 
     @Override
@@ -139,32 +146,12 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements IExchangeCor
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
-        tag.putLong("StoredBits", this.storedBits);
         tag.putInt("Priority", this.priority);
-
-        ListTag list = new ListTag();
-        var ops = registries.createSerializationContext(NbtOps.INSTANCE);
-        for (ItemStack item : this.learnedItems) {
-            ItemStack.OPTIONAL_CODEC.encodeStart(ops, item)
-                    .resultOrPartial()
-                    .ifPresent(list::add);
-        }
-        tag.put("LearnedItems", list);
     }
 
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        this.storedBits = tag.getLong("StoredBits");
         this.priority = tag.getInt("Priority");
-        this.learnedItems.clear();
-
-        ListTag list = tag.getList("LearnedItems", Tag.TAG_COMPOUND);
-        var ops = registries.createSerializationContext(NbtOps.INSTANCE);
-        for (int i = 0; i < list.size(); i++) {
-            ItemStack.OPTIONAL_CODEC.parse(ops, list.get(i))
-                    .resultOrPartial()
-                    .ifPresent(this.learnedItems::add);
-        }
     }
 }
