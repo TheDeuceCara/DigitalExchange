@@ -55,4 +55,15 @@ public class DigitalExchangeMod {
     private void onServerStarted(ServerStartedEvent event) {
         DynamicRecipeGraph.computeGraph(event.getServer());
     }
+
+    // Inside DigitalExchangeMod.java constructor:
+modEventBus.addListener(this::registerCapabilities);
+
+private void registerCapabilities(net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent event) {
+    event.registerBlockEntity(
+            appeng.api.networking.IInWorldGridNodeHost.LOOKUP,
+            ModBlockEntities.EXCHANGE_CORE.get(),
+            (be, side) -> be
+    );
+}
 }
