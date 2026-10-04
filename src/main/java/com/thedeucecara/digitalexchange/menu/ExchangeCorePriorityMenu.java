@@ -15,32 +15,47 @@ public class ExchangeCorePriorityMenu extends AbstractContainerMenu {
     private final ExchangeCoreBlockEntity blockEntity;
     private final ContainerData data;
 
-    // Client constructor (from FriendlyByteBuf)
     public ExchangeCorePriorityMenu(int windowId, Inventory playerInv, FriendlyByteBuf extraData) {
         this(windowId, playerInv, (ExchangeCoreBlockEntity) playerInv.player.level().getBlockEntity(extraData.readBlockPos()), new SimpleContainerData(1));
     }
 
-    // Server constructor
     public ExchangeCorePriorityMenu(int windowId, Inventory playerInv, ExchangeCoreBlockEntity blockEntity, ContainerData data) {
         super(ModMenus.PRIORITY_MENU.get(), windowId);
         this.blockEntity = blockEntity;
         this.data = data;
-        addDataSlots(data);
-    }
-
-    public ExchangeCoreBlockEntity getBlockEntity() {
-        return this.blockEntity;
+        this.addDataSlots(data);
     }
 
     public int getPriority() {
         return this.data.get(0);
     }
 
-    public void setPriority(int priority) {
-        this.data.set(0, priority);
-        if (this.blockEntity != null) {
-            this.blockEntity.setPriority(priority);
+    /**
+     * Handles button clicks sent from the client UI.
+     * Minecraft automatically syncs clickMenuButton over the network to the server.
+     */
+    @Override
+    public boolean clickMenuButton(Player player, int id) {
+        int current = this.data.get(0);
+        int newPriority = current;
+
+        switch (id) {
+            case 0 -> newPriority = current - 100;
+            case 1 -> newPriority = current - 10;
+            case 2 -> newPriority = current - 1;
+            case 3 -> newPriority = current + 1;
+            case 4 -> newPriority = current + 10;
+            case 5 -> newPriority = current + 100;
+            default -> {
+                return false;
+            }
         }
+
+        this.data.set(0, newPriority);
+        if (this.blockEntity != null) {
+            this.blockEntity.setPriority(newPriority);
+        }
+        return true;
     }
 
     @Override
