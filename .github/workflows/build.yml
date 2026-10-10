@@ -31,7 +31,7 @@ jobs:
           gradle-version: '8.12'
 
       - name: Build with Gradle
-        run: gradle build
+        run: gradle build -PbuildNumber=${{ github.run_number }}
 
       - name: Upload Mod Jar
         uses: actions/upload-artifact@v4
