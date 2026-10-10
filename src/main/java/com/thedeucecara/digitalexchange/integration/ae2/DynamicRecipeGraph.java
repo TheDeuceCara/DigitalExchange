@@ -2,6 +2,7 @@ package com.thedeucecara.digitalexchange.integration.ae2;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.Holder;
+import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -28,6 +29,7 @@ public class DynamicRecipeGraph {
         RESOLVED_BASE_VALUES.clear();
         LOGGER.info("[DigitalExchange] Initializing dynamic item valuation graph...");
 
+        // 1. Establish anchor and common tag baselines
         assignDynamicTagBaselines();
 
         var recipeManager = server.getRecipeManager();
@@ -46,21 +48,26 @@ public class DynamicRecipeGraph {
 
                 if (recipe instanceof CraftingRecipe crafting) {
                     ItemStack output = crafting.getResultItem(server.registryAccess());
-                    if (output.isEmpty()) continue;
+                    if (output.isEmpty() || output.getCount() <= 0) continue;
 
                     long cost = evaluateIngredients(crafting.getIngredients());
                     if (cost > 0) {
-                        long perItemCost = Math.max(1L, cost / output.getCount());
+                        // Deduct remainder items (e.g. Buckets returned when crafting Cake)
+                        long remainderRefund = calculateRemainderRefund(crafting.getIngredients());
+                        long netCost = Math.max(1L, cost - remainderRefund);
+
+                        long perItemCost = Math.max(1L, netCost / output.getCount());
                         if (updateIfBetter(output.getItem(), perItemCost)) {
                             changed = true;
                         }
                     }
                 } else if (recipe instanceof SmeltingRecipe smelting) {
                     ItemStack output = smelting.getResultItem(server.registryAccess());
-                    if (output.isEmpty()) continue;
+                    if (output.isEmpty() || output.getCount() <= 0) continue;
 
                     long inputCost = evaluateIngredients(smelting.getIngredients());
                     if (inputCost > 0) {
+                        // Smelting carries a minor energetic cost (+8 Bits)
                         long perItemCost = Math.max(1L, (inputCost + 8L) / output.getCount());
                         if (updateIfBetter(output.getItem(), perItemCost)) {
                             changed = true;
@@ -74,6 +81,7 @@ public class DynamicRecipeGraph {
     }
 
     private static void assignDynamicTagBaselines() {
+        // Vanilla Anchors
         setBase(Items.DIRT, 1L);
         setBase(Items.COBBLESTONE, 1L);
         setBase(Items.STONE, 1L);
@@ -93,7 +101,9 @@ public class DynamicRecipeGraph {
         setBase(Items.DIAMOND, 8192L);
         setBase(Items.EMERALD, 8192L);
         setBase(Items.NETHERITE_INGOT, 65536L);
+        setBase(Items.BUCKET, 768L); // 3 Iron Ingots = 768
 
+        // Modded Tag Scanning across all namespaces
         for (Item item : BuiltInRegistries.ITEM) {
             if (item == Items.AIR) continue;
             Holder<Item> holder = item.builtInRegistryHolder();
@@ -113,11 +123,14 @@ public class DynamicRecipeGraph {
                 setBase(item, 257L);
             } else if (matchesTagPrefix(holder, "c", "dusts/")) {
                 setBase(item, 128L);
+            } else if (matchesTagPrefix(holder, "c", "storage_blocks/")) {
+                // If a storage block tag exists and isn't priced, seed it conservatively
+                setBase(item, 2304L); // 9 * 256 default
             }
         }
     }
 
-    private static long evaluateIngredients(java.util.List<Ingredient> ingredients) {
+    private static long evaluateIngredients(NonNullList<Ingredient> ingredients) {
         long sum = 0L;
         for (Ingredient ing : ingredients) {
             if (ing.isEmpty()) continue;
@@ -131,11 +144,36 @@ public class DynamicRecipeGraph {
             }
 
             if (lowestCost == Long.MAX_VALUE) {
-                return 0L;
+                return 0L; // Missing ingredient price; recipe cannot be resolved yet
             }
             sum += lowestCost;
         }
         return sum;
+    }
+
+    /**
+     * Checks if any ingredients leave behind container remainders (e.g. Buckets, Bowls)
+     * and sums their values so they are subtracted from the recipe output cost.
+     */
+    private static long calculateRemainderRefund(NonNullList<Ingredient> ingredients) {
+        long refund = 0L;
+        for (Ingredient ing : ingredients) {
+            if (ing.isEmpty()) continue;
+
+            for (ItemStack stack : ing.getItems()) {
+                Item item = stack.getItem();
+                // Check if the item returns a remainder on craft (e.g. Milk Bucket -> Bucket)
+                ItemStack remainder = item.getCraftingRemainder(stack);
+                if (!remainder.isEmpty()) {
+                    long remVal = getBaseValue(remainder.getItem());
+                    if (remVal > 0) {
+                        refund += remVal;
+                        break; // Only account for one candidate per ingredient slot
+                    }
+                }
+            }
+        }
+        return refund;
     }
 
     private static boolean updateIfBetter(Item item, long newCost) {
