@@ -1,5 +1,6 @@
 package com.thedeucecara.digitalexchange.data;
 
+import com.thedeucecara.digitalexchange.integration.ae2.BitValueCalculator;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -43,13 +44,25 @@ public class ExchangeSavedData extends SavedData {
         return false;
     }
 
+    /**
+     * Sanitizes incoming item templates to 100% pristine durability
+     * and guards against saving non-empty inventory containers.
+     */
     public void learnItem(ItemStack stack) {
+        if (stack.isEmpty() || !BitValueCalculator.isSafeToLearnOrDeposit(stack)) {
+            return;
+        }
+
+        // Clean template: strips damage so it is stored at 100% pristine condition
+        ItemStack pristine = BitValueCalculator.createPristineTemplate(stack);
+
         for (ItemStack existing : this.learnedItems) {
-            if (ItemStack.isSameItemSameComponents(existing, stack)) {
+            if (ItemStack.isSameItemSameComponents(existing, pristine)) {
                 return;
             }
         }
-        this.learnedItems.add(stack.copyWithCount(1));
+
+        this.learnedItems.add(pristine);
         this.setDirty();
     }
 
@@ -67,7 +80,11 @@ public class ExchangeSavedData extends SavedData {
         for (int i = 0; i < list.size(); i++) {
             ItemStack.OPTIONAL_CODEC.parse(ops, list.get(i))
                     .resultOrPartial()
-                    .ifPresent(data.learnedItems::add);
+                    .ifPresent(stack -> {
+                        // Ensure legacy/existing saves are canonicalized to pristine templates
+                        ItemStack pristine = BitValueCalculator.createPristineTemplate(stack);
+                        data.learnedItems.add(pristine);
+                    });
         }
         return data;
     }
