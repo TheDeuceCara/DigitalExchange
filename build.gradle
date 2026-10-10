@@ -6,7 +6,12 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.78'
 }
 
-version = property('mod_version')
+// Dynamic Mod Versioning
+def baseModVersion = "1.0"
+def buildNum = project.hasProperty('buildNumber') ? project.property('buildNumber') : "0-dev"
+def fullModVersion = "${baseModVersion}.${buildNum}"
+
+version = "${property('minecraft_version')}-${fullModVersion}"
 group = 'com.thedeucecara.digitalexchange'
 
 base {
@@ -60,7 +65,7 @@ tasks.withType(ProcessResources).configureEach {
             neo_version      : neo_version,
             mod_id           : mod_id,
             mod_name         : mod_name,
-            mod_version      : mod_version,
+            mod_version      : fullModVersion,
             mod_author       : mod_author
     ]
     inputs.properties replaceProperties
