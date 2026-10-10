@@ -1,0 +1,13 @@
+{
+  "minecraft:nether_star": 131072,
+  "minecraft:elytra": 262144,
+  "minecraft:totem_of_undying": 32768,
+  "minecraft:dragon_egg": 1048576,
+  "minecraft:heart_of_the_sea": 65536,
+  "minecraft:nautilus_shell": 4096,
+  "minecraft:wither_skeleton_skull": 16384,
+  "minecraft:shulker_shell": 8192,
+  "minecraft:enchanted_golden_apple": 147456,
+  "minecraft:echo_shard": 16384,
+  "minecraft:recovery_compass": 131072
+}
