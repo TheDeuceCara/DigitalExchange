@@ -104,8 +104,10 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements IExchangeCor
     @Override
     public void learnItem(ItemStack stack) {
         ExchangeSavedData data = getData();
-        if (data != null) {
-            data.learnItem(stack);
+        if (data != null && !stack.isEmpty()) {
+            // Guarantee item is registered as a pristine template (100% durability, zero damage)
+            ItemStack cleanTemplate = BitValueCalculator.createPristineTemplate(stack);
+            data.learnItem(cleanTemplate);
             this.saveChanges();
         }
     }
@@ -118,7 +120,8 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements IExchangeCor
 
     @Override
     public long calculateValue(ItemStack stack) {
-        return BitValueCalculator.calculateBaseValue(stack);
+        // Evaluates full pristine value for baseline extraction cost queries
+        return BitValueCalculator.calculatePristineBaseValue(stack);
     }
 
     public void saveChanges() {
