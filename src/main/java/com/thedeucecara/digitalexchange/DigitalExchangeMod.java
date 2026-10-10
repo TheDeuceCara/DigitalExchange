@@ -1,6 +1,7 @@
 package com.thedeucecara.digitalexchange;
 
 import com.thedeucecara.digitalexchange.config.ExchangeConfig;
+import com.thedeucecara.digitalexchange.data.CustomBitValuesLoader;
 import com.thedeucecara.digitalexchange.init.ModBlockEntities;
 import com.thedeucecara.digitalexchange.init.ModBlocks;
 import com.thedeucecara.digitalexchange.init.ModMenus;
@@ -17,6 +18,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -50,6 +52,8 @@ public class DigitalExchangeMod {
         modEventBus.addListener(this::registerCapabilities);
         modEventBus.addListener(com.thedeucecara.digitalexchange.client.DigitalExchangeClient::registerScreens);
 
+        // Server & Game Event Bus Listeners
+        NeoForge.EVENT_BUS.addListener(this::onAddReloadListeners);
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
     }
 
@@ -65,6 +69,11 @@ public class DigitalExchangeMod {
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
             event.accept(ModBlocks.EXCHANGE_CORE_ITEM.get());
         }
+    }
+
+    private void onAddReloadListeners(AddReloadListenerEvent event) {
+        // Registers datapack JSON loader for custom bit overrides
+        event.addListener(new CustomBitValuesLoader());
     }
 
     private void onServerStarted(ServerStartedEvent event) {
