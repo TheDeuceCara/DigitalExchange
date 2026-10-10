@@ -32,20 +32,21 @@ public class ExchangeItemHandler implements IItemHandler {
 
             long storedBits = this.core.getStoredBits();
 
-            // 1. Can afford at least one full item
+            // 1. Can afford at least one full pristine item
             if (storedBits >= unitCost) {
                 long affordable = storedBits / unitCost;
                 int displayCount = (int) Math.min(affordable, (long) Integer.MAX_VALUE);
                 return template.copyWithCount(displayCount);
             }
 
-            // 2. Cannot afford full item: check durability & 25% threshold
-            if (template.isDamageableItem() && storedBits >= (unitCost / 4L)) {
-                // Show 1 item available so the terminal/player can withdraw the worn variant
+            // 2. Cannot afford full item: check 25% threshold for damageable gear
+            long minWearThreshold = Math.max(1L, (long) Math.ceil(unitCost * 0.25));
+            if (template.isDamageableItem() && storedBits >= minWearThreshold) {
+                // Show 1 available so the terminal and storage bus expose the item
                 return template.copyWithCount(1);
             }
 
-            // 3. Below threshold or non-damageable: do not show in list
+            // 3. Below 25% or non-damageable item: do not display
             return ItemStack.EMPTY;
         }
         return ItemStack.EMPTY;
@@ -56,7 +57,6 @@ public class ExchangeItemHandler implements IItemHandler {
         if (stack.isEmpty()) return ItemStack.EMPTY;
 
         // Container protection: Reject Shulkers/Backpacks containing items
-        // Tanks, Buckets, and Mekanism Gas Canisters pass through safely
         if (!BitValueCalculator.isSafeToLearnOrDeposit(stack)) {
             return stack;
         }
@@ -102,26 +102,37 @@ public class ExchangeItemHandler implements IItemHandler {
                 this.core.deductBits((long) toExtract * fullUnitCost);
             }
 
-            return template.copyWithCount(toExtract);
+            ItemStack out = template.copyWithCount(toExtract);
+            out.remove(DataComponents.UNBREAKABLE);
+            return out;
         }
 
-        // CASE 2: Fractional durability extraction
-        // Only applies to damageable items with at least 25% of the full bit cost
-        if (template.isDamageableItem() && currentBits >= (fullUnitCost / 4L)) {
-            int maxDurability = template.getMaxDamage();
-
-            // Calculate affordable durability ratio: ratio = currentBits / fullUnitCost
-            double ratio = (double) currentBits / (double) fullUnitCost;
-
-            // Damage applied: max - (max * ratio)
-            int appliedDamage = (int) Math.max(1, Math.min(maxDurability - 1, Math.floor(maxDurability * (1.0 - ratio))));
-
+        // CASE 2: Fractional durability extraction (25% to 99% cost)
+        long minWearThreshold = Math.max(1L, (long) Math.ceil(fullUnitCost * 0.25));
+        if (template.isDamageableItem() && currentBits >= minWearThreshold) {
             ItemStack wornStack = template.copyWithCount(1);
-            wornStack.set(DataComponents.DAMAGE, appliedDamage);
+            wornStack.remove(DataComponents.UNBREAKABLE);
+
+            int maxDurability = wornStack.getMaxDamage();
+            if (maxDurability <= 0) return ItemStack.EMPTY;
+
+            // Durability ratio: ratio = currentBits / fullUnitCost
+            double bitRatio = Math.min(0.99, (double) currentBits / (double) fullUnitCost);
+
+            // Target damage: damage = max - (max * ratio)
+            int targetDamage = (int) Math.floor(maxDurability * (1.0 - bitRatio));
+            targetDamage = Math.max(1, Math.min(maxDurability - 1, targetDamage));
+
+            // Use setDamageValue to ensure vanilla durability tracking activates properly
+            wornStack.setDamageValue(targetDamage);
+
+            // Compute exact bits consumed by the worn item
+            double remainingDurabilityRatio = (double) (maxDurability - targetDamage) / (double) maxDurability;
+            long bitsConsumed = Math.max(1L, (long) Math.ceil(fullUnitCost * remainingDurabilityRatio));
+            bitsConsumed = Math.min(currentBits, bitsConsumed);
 
             if (!simulate) {
-                // Deduct remaining bits consumed for this worn tool
-                this.core.deductBits(currentBits);
+                this.core.deductBits(bitsConsumed);
             }
 
             return wornStack;
