@@ -38,46 +38,68 @@ public class DynamicRecipeGraph {
         boolean changed = true;
         int pass = 0;
         int maxPasses = 16;
+        int errorCount = 0;
 
         while (changed && pass < maxPasses) {
             changed = false;
             pass++;
 
             for (RecipeHolder<?> holder : recipes) {
-                var recipe = holder.value();
+                // SAFE-FAIL ISOLATION: A single broken recipe from another mod
+                // must NEVER crash the server or abort graph processing.
+                try {
+                    var recipe = holder.value();
 
-                if (recipe instanceof CraftingRecipe crafting) {
-                    ItemStack output = crafting.getResultItem(server.registryAccess());
-                    if (output.isEmpty() || output.getCount() <= 0) continue;
+                    if (recipe instanceof CraftingRecipe crafting) {
+                        ItemStack output = crafting.getResultItem(server.registryAccess());
+                        
+                        // SAFE-FAIL CHECK 1: Guard against empty, null, or zero-count outputs
+                        if (output.isEmpty() || output.getCount() <= 0) {
+                            continue;
+                        }
 
-                    long cost = evaluateIngredients(crafting.getIngredients());
-                    if (cost > 0) {
-                        // Deduct remainder items (e.g. Buckets returned when crafting Cake)
-                        long remainderRefund = calculateRemainderRefund(crafting.getIngredients());
-                        long netCost = Math.max(1L, cost - remainderRefund);
+                        long cost = evaluateIngredients(crafting.getIngredients());
+                        if (cost > 0) {
+                            long remainderRefund = calculateRemainderRefund(crafting.getIngredients());
+                            long netCost = Math.max(1L, cost - remainderRefund);
+                            
+                            int outputCount = Math.max(1, output.getCount());
+                            long perItemCost = Math.max(1L, netCost / outputCount);
 
-                        long perItemCost = Math.max(1L, netCost / output.getCount());
-                        if (updateIfBetter(output.getItem(), perItemCost)) {
-                            changed = true;
+                            if (updateIfBetter(output.getItem(), perItemCost)) {
+                                changed = true;
+                            }
+                        }
+                    } else if (recipe instanceof SmeltingRecipe smelting) {
+                        ItemStack output = smelting.getResultItem(server.registryAccess());
+                        
+                        // SAFE-FAIL CHECK 2: Guard against smelting zero-count outputs
+                        if (output.isEmpty() || output.getCount() <= 0) {
+                            continue;
+                        }
+
+                        long inputCost = evaluateIngredients(smelting.getIngredients());
+                        if (inputCost > 0) {
+                            int outputCount = Math.max(1, output.getCount());
+                            long perItemCost = Math.max(1L, (inputCost + 8L) / outputCount);
+
+                            if (updateIfBetter(output.getItem(), perItemCost)) {
+                                changed = true;
+                            }
                         }
                     }
-                } else if (recipe instanceof SmeltingRecipe smelting) {
-                    ItemStack output = smelting.getResultItem(server.registryAccess());
-                    if (output.isEmpty() || output.getCount() <= 0) continue;
-
-                    long inputCost = evaluateIngredients(smelting.getIngredients());
-                    if (inputCost > 0) {
-                        // Smelting carries a minor energetic cost (+8 Bits)
-                        long perItemCost = Math.max(1L, (inputCost + 8L) / output.getCount());
-                        if (updateIfBetter(output.getItem(), perItemCost)) {
-                            changed = true;
-                        }
+                } catch (Throwable t) {
+                    if (pass == 1) { // Log each corrupt recipe once during pass 1
+                        errorCount++;
+                        LOGGER.warn("[DigitalExchange] Safely skipped broken recipe '{}' during valuation: {}", 
+                                holder.id(), t.getMessage());
                     }
                 }
             }
         }
 
-        LOGGER.info("[DigitalExchange] Dynamic valuation converged in {} passes. Evaluated {} items.", pass, RESOLVED_BASE_VALUES.size());
+        LOGGER.info("[DigitalExchange] Dynamic valuation converged in {} passes. Evaluated {} items (Skipped {} incompatible recipes).",
+                pass, RESOLVED_BASE_VALUES.size(), errorCount);
     }
 
     private static void assignDynamicTagBaselines() {
@@ -101,31 +123,34 @@ public class DynamicRecipeGraph {
         setBase(Items.DIAMOND, 8192L);
         setBase(Items.EMERALD, 8192L);
         setBase(Items.NETHERITE_INGOT, 65536L);
-        setBase(Items.BUCKET, 768L); // 3 Iron Ingots = 768
+        setBase(Items.BUCKET, 768L);
 
         // Modded Tag Scanning across all namespaces
         for (Item item : BuiltInRegistries.ITEM) {
             if (item == Items.AIR) continue;
-            Holder<Item> holder = item.builtInRegistryHolder();
+            try {
+                Holder<Item> holder = item.builtInRegistryHolder();
 
-            if (matchesTagPrefix(holder, "c", "ingots/")) {
-                if (matchesTag(holder, "c", "ingots/copper")) setBase(item, 128L);
-                else if (matchesTag(holder, "c", "ingots/tin")) setBase(item, 192L);
-                else if (matchesTag(holder, "c", "ingots/zinc") || matchesTag(holder, "c", "ingots/lead")) setBase(item, 256L);
-                else if (matchesTag(holder, "c", "ingots/silver") || matchesTag(holder, "c", "ingots/nickel")) setBase(item, 1024L);
-                else if (matchesTag(holder, "c", "ingots/uranium")) setBase(item, 4096L);
-                else setBase(item, 512L);
-            } else if (matchesTagPrefix(holder, "c", "gems/")) {
-                setBase(item, 2048L);
-            } else if (matchesTagPrefix(holder, "c", "raw_materials/")) {
-                setBase(item, 256L);
-            } else if (matchesTagPrefix(holder, "c", "ores/")) {
-                setBase(item, 257L);
-            } else if (matchesTagPrefix(holder, "c", "dusts/")) {
-                setBase(item, 128L);
-            } else if (matchesTagPrefix(holder, "c", "storage_blocks/")) {
-                // If a storage block tag exists and isn't priced, seed it conservatively
-                setBase(item, 2304L); // 9 * 256 default
+                if (matchesTagPrefix(holder, "c", "ingots/")) {
+                    if (matchesTag(holder, "c", "ingots/copper")) setBase(item, 128L);
+                    else if (matchesTag(holder, "c", "ingots/tin")) setBase(item, 192L);
+                    else if (matchesTag(holder, "c", "ingots/zinc") || matchesTag(holder, "c", "ingots/lead")) setBase(item, 256L);
+                    else if (matchesTag(holder, "c", "ingots/silver") || matchesTag(holder, "c", "ingots/nickel")) setBase(item, 1024L);
+                    else if (matchesTag(holder, "c", "ingots/uranium")) setBase(item, 4096L);
+                    else setBase(item, 512L);
+                } else if (matchesTagPrefix(holder, "c", "gems/")) {
+                    setBase(item, 2048L);
+                } else if (matchesTagPrefix(holder, "c", "raw_materials/")) {
+                    setBase(item, 256L);
+                } else if (matchesTagPrefix(holder, "c", "ores/")) {
+                    setBase(item, 257L);
+                } else if (matchesTagPrefix(holder, "c", "dusts/")) {
+                    setBase(item, 128L);
+                } else if (matchesTagPrefix(holder, "c", "storage_blocks/")) {
+                    setBase(item, 2304L);
+                }
+            } catch (Exception ignored) {
+                // Ignore registry lookups for volatile or synthetic dummy items
             }
         }
     }
@@ -136,7 +161,15 @@ public class DynamicRecipeGraph {
             if (ing.isEmpty()) continue;
             long lowestCost = Long.MAX_VALUE;
 
-            for (ItemStack stack : ing.getItems()) {
+            ItemStack[] matchingStacks;
+            try {
+                matchingStacks = ing.getItems();
+            } catch (Exception e) {
+                return 0L; // Broken ingredient definition; abandon recipe calculation
+            }
+
+            for (ItemStack stack : matchingStacks) {
+                if (stack.isEmpty()) continue;
                 long val = getBaseValue(stack.getItem());
                 if (val > 0 && val < lowestCost) {
                     lowestCost = val;
@@ -144,32 +177,39 @@ public class DynamicRecipeGraph {
             }
 
             if (lowestCost == Long.MAX_VALUE) {
-                return 0L; // Missing ingredient price; recipe cannot be resolved yet
+                return 0L;
             }
             sum += lowestCost;
         }
         return sum;
     }
 
-    /**
-     * Checks if any ingredients leave behind container remainders (e.g. Buckets, Bowls)
-     * and sums their values so they are subtracted from the recipe output cost.
-     */
     private static long calculateRemainderRefund(NonNullList<Ingredient> ingredients) {
         long refund = 0L;
         for (Ingredient ing : ingredients) {
             if (ing.isEmpty()) continue;
 
-            for (ItemStack stack : ing.getItems()) {
-                Item item = stack.getItem();
-                // Check if the item returns a remainder on craft (e.g. Milk Bucket -> Bucket)
-                ItemStack remainder = item.getCraftingRemainder(stack);
-                if (!remainder.isEmpty()) {
-                    long remVal = getBaseValue(remainder.getItem());
-                    if (remVal > 0) {
-                        refund += remVal;
-                        break; // Only account for one candidate per ingredient slot
+            ItemStack[] matchingStacks;
+            try {
+                matchingStacks = ing.getItems();
+            } catch (Exception e) {
+                continue;
+            }
+
+            for (ItemStack stack : matchingStacks) {
+                if (stack.isEmpty()) continue;
+                try {
+                    Item item = stack.getItem();
+                    ItemStack remainder = item.getCraftingRemainder(stack);
+                    if (!remainder.isEmpty()) {
+                        long remVal = getBaseValue(remainder.getItem());
+                        if (remVal > 0) {
+                            refund += remVal;
+                            break;
+                        }
                     }
+                } catch (Exception ignored) {
+                    // Skip volatile remainder hooks
                 }
             }
         }
