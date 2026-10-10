@@ -199,8 +199,8 @@ public class DynamicRecipeGraph {
             for (ItemStack stack : matchingStacks) {
                 if (stack.isEmpty()) continue;
                 try {
-                    Item item = stack.getItem();
-                    ItemStack remainder = item.getCraftingRemainder(stack);
+                    // Modern NeoForge 1.21.1 ItemStack remainder check
+                    ItemStack remainder = stack.getCraftingRemainder();
                     if (!remainder.isEmpty()) {
                         long remVal = getBaseValue(remainder.getItem());
                         if (remVal > 0) {
@@ -215,7 +215,7 @@ public class DynamicRecipeGraph {
         }
         return refund;
     }
-
+    
     private static boolean updateIfBetter(Item item, long newCost) {
         long existing = RESOLVED_BASE_VALUES.getOrDefault(item, 0L);
         if (existing == 0L || newCost < existing) {
