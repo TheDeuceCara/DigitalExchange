@@ -25,6 +25,11 @@ public class DynamicRecipeGraph {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Map<Item, Long> RESOLVED_BASE_VALUES = new HashMap<>();
 
+    // Datapack Tag definitions
+    public static final TagKey<Item> BLACKLIST_TAG = TagKey.create(
+            Registries.ITEM, ResourceLocation.fromNamespaceAndPath("digitalexchange", "blacklisted")
+    );
+
     public static void computeGraph(MinecraftServer server) {
         RESOLVED_BASE_VALUES.clear();
         LOGGER.info("[DigitalExchange] Initializing dynamic item valuation graph...");
@@ -45,16 +50,14 @@ public class DynamicRecipeGraph {
             pass++;
 
             for (RecipeHolder<?> holder : recipes) {
-                // SAFE-FAIL ISOLATION: A single broken recipe from another mod
-                // must NEVER crash the server or abort graph processing.
                 try {
                     var recipe = holder.value();
 
                     if (recipe instanceof CraftingRecipe crafting) {
                         ItemStack output = crafting.getResultItem(server.registryAccess());
-                        
-                        // SAFE-FAIL CHECK 1: Guard against empty, null, or zero-count outputs
-                        if (output.isEmpty() || output.getCount() <= 0) {
+
+                        // SAFE-FAIL: Guard empty outputs or blacklisted items
+                        if (output.isEmpty() || output.getCount() <= 0 || isBlacklisted(output.getItem())) {
                             continue;
                         }
 
@@ -62,7 +65,7 @@ public class DynamicRecipeGraph {
                         if (cost > 0) {
                             long remainderRefund = calculateRemainderRefund(crafting.getIngredients());
                             long netCost = Math.max(1L, cost - remainderRefund);
-                            
+
                             int outputCount = Math.max(1, output.getCount());
                             long perItemCost = Math.max(1L, netCost / outputCount);
 
@@ -72,9 +75,8 @@ public class DynamicRecipeGraph {
                         }
                     } else if (recipe instanceof SmeltingRecipe smelting) {
                         ItemStack output = smelting.getResultItem(server.registryAccess());
-                        
-                        // SAFE-FAIL CHECK 2: Guard against smelting zero-count outputs
-                        if (output.isEmpty() || output.getCount() <= 0) {
+
+                        if (output.isEmpty() || output.getCount() <= 0 || isBlacklisted(output.getItem())) {
                             continue;
                         }
 
@@ -89,9 +91,9 @@ public class DynamicRecipeGraph {
                         }
                     }
                 } catch (Throwable t) {
-                    if (pass == 1) { // Log each corrupt recipe once during pass 1
+                    if (pass == 1) {
                         errorCount++;
-                        LOGGER.warn("[DigitalExchange] Safely skipped broken recipe '{}' during valuation: {}", 
+                        LOGGER.warn("[DigitalExchange] Safely skipped broken recipe '{}' during valuation: {}",
                                 holder.id(), t.getMessage());
                     }
                 }
@@ -127,7 +129,7 @@ public class DynamicRecipeGraph {
 
         // Modded Tag Scanning across all namespaces
         for (Item item : BuiltInRegistries.ITEM) {
-            if (item == Items.AIR) continue;
+            if (item == Items.AIR || isBlacklisted(item)) continue;
             try {
                 Holder<Item> holder = item.builtInRegistryHolder();
 
@@ -150,7 +152,6 @@ public class DynamicRecipeGraph {
                     setBase(item, 2304L);
                 }
             } catch (Exception ignored) {
-                // Ignore registry lookups for volatile or synthetic dummy items
             }
         }
     }
@@ -165,11 +166,11 @@ public class DynamicRecipeGraph {
             try {
                 matchingStacks = ing.getItems();
             } catch (Exception e) {
-                return 0L; // Broken ingredient definition; abandon recipe calculation
+                return 0L;
             }
 
             for (ItemStack stack : matchingStacks) {
-                if (stack.isEmpty()) continue;
+                if (stack.isEmpty() || isBlacklisted(stack.getItem())) continue;
                 long val = getBaseValue(stack.getItem());
                 if (val > 0 && val < lowestCost) {
                     lowestCost = val;
@@ -199,8 +200,8 @@ public class DynamicRecipeGraph {
             for (ItemStack stack : matchingStacks) {
                 if (stack.isEmpty()) continue;
                 try {
-                    // Modern NeoForge 1.21.1 ItemStack remainder check
-                    ItemStack remainder = stack.getCraftingRemainder();
+                    // NeoForge 1.21.1 remainder query
+                    ItemStack remainder = stack.getCraftingRemainingItem();
                     if (!remainder.isEmpty()) {
                         long remVal = getBaseValue(remainder.getItem());
                         if (remVal > 0) {
@@ -209,13 +210,16 @@ public class DynamicRecipeGraph {
                         }
                     }
                 } catch (Exception ignored) {
-                    // Skip volatile remainder hooks
                 }
             }
         }
         return refund;
     }
-    
+
+    public static boolean isBlacklisted(Item item) {
+        return item.builtInRegistryHolder().is(BLACKLIST_TAG);
+    }
+
     private static boolean updateIfBetter(Item item, long newCost) {
         long existing = RESOLVED_BASE_VALUES.getOrDefault(item, 0L);
         if (existing == 0L || newCost < existing) {
@@ -230,6 +234,7 @@ public class DynamicRecipeGraph {
     }
 
     public static long getBaseValue(Item item) {
+        if (isBlacklisted(item)) return 0L;
         return RESOLVED_BASE_VALUES.getOrDefault(item, 0L);
     }
 
@@ -238,8 +243,8 @@ public class DynamicRecipeGraph {
     }
 
     private static boolean matchesTagPrefix(Holder<Item> holder, String namespace, String prefix) {
-        return holder.tags().anyMatch(tag -> 
-            tag.location().getNamespace().equals(namespace) && tag.location().getPath().startsWith(prefix)
+        return holder.tags().anyMatch(tag ->
+                tag.location().getNamespace().equals(namespace) && tag.location().getPath().startsWith(prefix)
         );
     }
 }
