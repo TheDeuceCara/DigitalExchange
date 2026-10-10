@@ -1,6 +1,7 @@
 package com.thedeucecara.digitalexchange.integration.ae2;
 
 import com.mojang.logging.LogUtils;
+import com.thedeucecara.digitalexchange.data.CustomBitValuesLoader;
 import net.minecraft.core.Holder;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -37,6 +38,11 @@ public class DynamicRecipeGraph {
         // 1. Establish anchor and common tag baselines
         assignDynamicTagBaselines();
 
+        // 2. Apply custom datapack overrides (Highest Priority)
+        CustomBitValuesLoader.getAllCustomValues().forEach((item, val) -> {
+            RESOLVED_BASE_VALUES.put(item, val);
+        });
+
         var recipeManager = server.getRecipeManager();
         var recipes = recipeManager.getRecipes();
 
@@ -56,8 +62,10 @@ public class DynamicRecipeGraph {
                     if (recipe instanceof CraftingRecipe crafting) {
                         ItemStack output = crafting.getResultItem(server.registryAccess());
 
-                        // SAFE-FAIL: Guard empty outputs or blacklisted items
-                        if (output.isEmpty() || output.getCount() <= 0 || isBlacklisted(output.getItem())) {
+                        // SAFE-FAIL: Guard empty outputs, blacklisted items, or explicit datapack overrides
+                        if (output.isEmpty() || output.getCount() <= 0
+                                || isBlacklisted(output.getItem())
+                                || CustomBitValuesLoader.hasCustomValue(output.getItem())) {
                             continue;
                         }
 
@@ -76,7 +84,9 @@ public class DynamicRecipeGraph {
                     } else if (recipe instanceof SmeltingRecipe smelting) {
                         ItemStack output = smelting.getResultItem(server.registryAccess());
 
-                        if (output.isEmpty() || output.getCount() <= 0 || isBlacklisted(output.getItem())) {
+                        if (output.isEmpty() || output.getCount() <= 0
+                                || isBlacklisted(output.getItem())
+                                || CustomBitValuesLoader.hasCustomValue(output.getItem())) {
                             continue;
                         }
 
@@ -200,7 +210,6 @@ public class DynamicRecipeGraph {
             for (ItemStack stack : matchingStacks) {
                 if (stack.isEmpty()) continue;
                 try {
-                    // NeoForge 1.21.1 remainder query
                     ItemStack remainder = stack.getCraftingRemainingItem();
                     if (!remainder.isEmpty()) {
                         long remVal = getBaseValue(remainder.getItem());
