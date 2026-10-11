@@ -125,11 +125,12 @@ public class ExchangeCoreBlockEntity extends BlockEntity implements IExchangeCor
     }
 
     public void saveChanges() {
-        this.setChanged();
-        if (this.level != null && !this.level.isClientSide()) {
-            this.level.sendBlockUpdated(this.worldPosition, this.getBlockState(), this.getBlockState(), 3);
-        }
+    this.setChanged();
+    if (this.level != null && !this.level.isClientSide()) {
+        this.level.sendBlockUpdated(this.worldPosition, this.getBlockState(), this.getBlockState(), 3);
+        this.level.updateNeighborsAt(this.worldPosition, this.getBlockState().getBlock());
     }
+}
 
     public void openMenu(ServerPlayer player) {
         player.openMenu(this, buf -> buf.writeBlockPos(this.worldPosition));
