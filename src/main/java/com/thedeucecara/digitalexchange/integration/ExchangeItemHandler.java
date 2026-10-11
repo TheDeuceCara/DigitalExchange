@@ -19,10 +19,7 @@ public class ExchangeItemHandler implements IItemHandler {
 
     @Override
     public int getSlots() {
-        // Expose only learned items as slots. 
-        // Any slot accepts valid deposits for dissolution.
-        int learnedCount = this.core.getLearnedItems().size();
-        return Math.max(1, learnedCount);
+        return Math.max(1, this.core.getLearnedItems().size());
     }
 
     @Override
@@ -41,25 +38,23 @@ public class ExchangeItemHandler implements IItemHandler {
                 int displayCount = (int) Math.min(affordable, (long) Integer.MAX_VALUE);
                 ItemStack pristine = template.copyWithCount(displayCount);
                 pristine.remove(DataComponents.UNBREAKABLE);
-                pristine.setDamageValue(0);
+                if (pristine.isDamageableItem()) {
+                    pristine.setDamageValue(0);
+                }
                 return pristine;
             }
 
-            // 2. Below pristine: 25% minimum wear threshold
-            long minWearThreshold = Math.max(1L, (long) Math.ceil(unitCost * 0.25));
+            // 2. Cannot afford full item: check 25% wear threshold
+            long minWearThreshold = BitValueCalculator.getMinimumWearCost(template);
             if (template.isDamageableItem() && storedBits >= minWearThreshold) {
-                // STABLE KEY: Always report fixed 75% damage (25% remaining durability)
-                // so the AEItemKey stays stable in AE2's cache and never disappears
-                ItemStack stablePreview = template.copyWithCount(1);
-                stablePreview.remove(DataComponents.UNBREAKABLE);
-                int maxDur = stablePreview.getMaxDamage();
-                if (maxDur > 1) {
-                    stablePreview.setDamageValue((int) Math.floor(maxDur * 0.75));
-                }
-                return stablePreview;
+                // Must return count 1 with standard template components so AE2 doesn't drop the slot
+                ItemStack preview = template.copyWithCount(1);
+                preview.remove(DataComponents.UNBREAKABLE);
+                preview.setDamageValue(0);
+                return preview;
             }
 
-            // 3. Below 25% threshold or non-damageable
+            // 3. Below threshold
             return ItemStack.EMPTY;
         }
         return ItemStack.EMPTY;
@@ -69,7 +64,6 @@ public class ExchangeItemHandler implements IItemHandler {
     public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
         if (stack.isEmpty()) return ItemStack.EMPTY;
 
-        // Container protection check
         if (!BitValueCalculator.isSafeToLearnOrDeposit(stack)) {
             return stack;
         }
@@ -84,8 +78,6 @@ public class ExchangeItemHandler implements IItemHandler {
             this.core.addBits(totalGain);
 
             ItemStack cleanTemplate = BitValueCalculator.createPristineTemplate(stack);
-            cleanTemplate.remove(DataComponents.UNBREAKABLE);
-            cleanTemplate.setDamageValue(0);
             this.core.learnItem(cleanTemplate);
         }
 
@@ -105,7 +97,7 @@ public class ExchangeItemHandler implements IItemHandler {
 
         long currentBits = this.core.getStoredBits();
 
-        // CASE 1: Standard pristine extraction
+        // CASE 1: Affords pristine item
         if (currentBits >= fullUnitCost) {
             long maxAffordable = currentBits / fullUnitCost;
             long toExtractLong = Math.min((long) amount, maxAffordable);
@@ -118,18 +110,19 @@ public class ExchangeItemHandler implements IItemHandler {
 
             ItemStack out = template.copyWithCount(toExtract);
             out.remove(DataComponents.UNBREAKABLE);
-            out.setDamageValue(0);
+            if (out.isDamageableItem()) {
+                out.setDamageValue(0);
+            }
             return out;
         }
 
-        // CASE 2: Fractional durability extraction (25% to 99% cost)
-        long minWearThreshold = Math.max(1L, (long) Math.ceil(fullUnitCost * 0.25));
+        // CASE 2: Fractional wear extraction (between 25% and 99%)
+        long minWearThreshold = BitValueCalculator.getMinimumWearCost(template);
         if (template.isDamageableItem() && currentBits >= minWearThreshold) {
             ItemStack wornStack = template.copyWithCount(1);
             wornStack.remove(DataComponents.UNBREAKABLE);
 
             int maxDurability = wornStack.getMaxDamage();
-            // Calculate dynamic wear according to available bits
             double bitRatio = Math.min(0.99, (double) currentBits / (double) fullUnitCost);
             int targetDamage = (int) Math.floor(maxDurability * (1.0 - bitRatio));
             targetDamage = Math.max(1, Math.min(maxDurability - 1, targetDamage));
