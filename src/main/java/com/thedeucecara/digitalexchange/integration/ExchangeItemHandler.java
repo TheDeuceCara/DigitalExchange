@@ -19,9 +19,10 @@ public class ExchangeItemHandler implements IItemHandler {
 
     @Override
     public int getSlots() {
-        // Slot 0 to N-1: learned extraction slots
-        // Slot N: insertion/dissolve slot
-        return this.core.getLearnedItems().size() + 1;
+        // Expose only learned items as slots. 
+        // Any slot accepts valid deposits for dissolution.
+        int learnedCount = this.core.getLearnedItems().size();
+        return Math.max(1, learnedCount);
     }
 
     @Override
@@ -34,24 +35,31 @@ public class ExchangeItemHandler implements IItemHandler {
 
             long storedBits = this.core.getStoredBits();
 
-            // 1. Can afford at least one full pristine item
+            // 1. Can afford at least 1 full pristine item
             if (storedBits >= unitCost) {
                 long affordable = storedBits / unitCost;
                 int displayCount = (int) Math.min(affordable, (long) Integer.MAX_VALUE);
-                ItemStack out = template.copyWithCount(displayCount);
-                out.remove(DataComponents.UNBREAKABLE);
-                out.setDamageValue(0);
-                return out;
+                ItemStack pristine = template.copyWithCount(displayCount);
+                pristine.remove(DataComponents.UNBREAKABLE);
+                pristine.setDamageValue(0);
+                return pristine;
             }
 
-            // 2. Below pristine: Check the 25% minimum threshold for damageable tools
+            // 2. Below pristine: 25% minimum wear threshold
             long minWearThreshold = Math.max(1L, (long) Math.ceil(unitCost * 0.25));
             if (template.isDamageableItem() && storedBits >= minWearThreshold) {
-                // Return a stable worn preview key so AE2 does not invalidate the slot key on every balance shift
-                return createPreviewWornStack(template, storedBits, unitCost);
+                // STABLE KEY: Always report fixed 75% damage (25% remaining durability)
+                // so the AEItemKey stays stable in AE2's cache and never disappears
+                ItemStack stablePreview = template.copyWithCount(1);
+                stablePreview.remove(DataComponents.UNBREAKABLE);
+                int maxDur = stablePreview.getMaxDamage();
+                if (maxDur > 1) {
+                    stablePreview.setDamageValue((int) Math.floor(maxDur * 0.75));
+                }
+                return stablePreview;
             }
 
-            // 3. Below threshold or non-damageable
+            // 3. Below 25% threshold or non-damageable
             return ItemStack.EMPTY;
         }
         return ItemStack.EMPTY;
@@ -61,7 +69,7 @@ public class ExchangeItemHandler implements IItemHandler {
     public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
         if (stack.isEmpty()) return ItemStack.EMPTY;
 
-        // Container safeguard
+        // Container protection check
         if (!BitValueCalculator.isSafeToLearnOrDeposit(stack)) {
             return stack;
         }
@@ -117,11 +125,18 @@ public class ExchangeItemHandler implements IItemHandler {
         // CASE 2: Fractional durability extraction (25% to 99% cost)
         long minWearThreshold = Math.max(1L, (long) Math.ceil(fullUnitCost * 0.25));
         if (template.isDamageableItem() && currentBits >= minWearThreshold) {
-            ItemStack wornStack = createPreviewWornStack(template, currentBits, fullUnitCost);
+            ItemStack wornStack = template.copyWithCount(1);
+            wornStack.remove(DataComponents.UNBREAKABLE);
 
             int maxDurability = wornStack.getMaxDamage();
-            int currentDamage = wornStack.getDamageValue();
-            double remainingRatio = (double) (maxDurability - currentDamage) / (double) maxDurability;
+            // Calculate dynamic wear according to available bits
+            double bitRatio = Math.min(0.99, (double) currentBits / (double) fullUnitCost);
+            int targetDamage = (int) Math.floor(maxDurability * (1.0 - bitRatio));
+            targetDamage = Math.max(1, Math.min(maxDurability - 1, targetDamage));
+
+            wornStack.setDamageValue(targetDamage);
+
+            double remainingRatio = (double) (maxDurability - targetDamage) / (double) maxDurability;
             long bitsConsumed = Math.max(1L, (long) Math.ceil(fullUnitCost * remainingRatio));
             bitsConsumed = Math.min(currentBits, bitsConsumed);
 
@@ -133,24 +148,6 @@ public class ExchangeItemHandler implements IItemHandler {
         }
 
         return ItemStack.EMPTY;
-    }
-
-    /**
-     * Constructs a stable worn stack for AE2/RS key indexing and withdrawal.
-     */
-    private ItemStack createPreviewWornStack(ItemStack template, long bits, long fullCost) {
-        ItemStack stack = template.copyWithCount(1);
-        stack.remove(DataComponents.UNBREAKABLE);
-
-        int maxDurability = stack.getMaxDamage();
-        if (maxDurability <= 0) return stack;
-
-        double bitRatio = Math.min(0.99, (double) bits / (double) fullCost);
-        int targetDamage = (int) Math.floor(maxDurability * (1.0 - bitRatio));
-        targetDamage = Math.max(1, Math.min(maxDurability - 1, targetDamage));
-
-        stack.setDamageValue(targetDamage);
-        return stack;
     }
 
     @Override
