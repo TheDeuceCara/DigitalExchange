@@ -26,36 +26,32 @@ public class BitValueCalculator {
     }
 
     /**
-     * Creates a pristine template (100% durability, empty fluids) to store in knowledge.
+     * Creates a pristine template (100% durability, zero damage, stripped unbreakable tags).
      */
     public static ItemStack createPristineTemplate(ItemStack stack) {
         ItemStack clean = stack.copyWithCount(1);
+        clean.remove(DataComponents.UNBREAKABLE);
         if (clean.isDamageableItem()) {
-            clean.remove(DataComponents.DAMAGE);
+            clean.setDamageValue(0);
         }
         return clean;
     }
 
-    /**
-     * Legacy/default calculate routing
-     */
     public static long calculate(ItemStack stack) {
         return calculateBaseValue(stack);
     }
 
     /**
-     * Calculates the pristine 100% baseline cost of an item template (unaffected by damage).
+     * Baseline unscaled pristine cost (100% durability).
      */
     public static long calculatePristineBaseValue(ItemStack stack) {
         if (stack.isEmpty()) return 0L;
 
-        // 1. Base Item Cost from Dynamic Recipe Graph / Common Tags
         long baseBits = DynamicRecipeGraph.getBaseValue(stack.getItem());
         if (baseBits <= 0L) {
             baseBits = 64L;
         }
 
-        // 2. Enchantments & Stored Books
         long enchantBonus = 0L;
         ItemEnchantments enchantments = stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
         if (enchantments.isEmpty()) {
@@ -67,31 +63,26 @@ public class BitValueCalculator {
             enchantBonus += 1024L * (1L << Math.max(0, level - 1));
         }
 
-        // 3. Custom Components: Apotheosis Gems, Modular Gear
         long customBonus = evaluateCustomComponents(stack, false);
-
         return baseBits + enchantBonus + customBonus;
     }
 
     /**
-     * Calculates the current baseline Bit value of an item, taking durability and stored contents into account.
+     * Baseline value factoring in wear & stored liquids/gases.
      */
     public static long calculateBaseValue(ItemStack stack) {
         if (stack.isEmpty() || !isSafeToLearnOrDeposit(stack)) return 0L;
 
-        // 1. Base Item Cost from Dynamic Recipe Graph / Common Tags
         long baseBits = DynamicRecipeGraph.getBaseValue(stack.getItem());
         if (baseBits <= 0L) {
             baseBits = 64L;
         }
 
-        // 2. Strict Durability / Integrity Scaling
         if (stack.isDamageableItem() && stack.isDamaged()) {
             double integrity = (double) (stack.getMaxDamage() - stack.getDamageValue()) / stack.getMaxDamage();
             baseBits = (long) Math.max(1, Math.floor(baseBits * integrity));
         }
 
-        // 3. Enchantments & Stored Books
         long enchantBonus = 0L;
         ItemEnchantments enchantments = stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
         if (enchantments.isEmpty()) {
@@ -103,9 +94,7 @@ public class BitValueCalculator {
             enchantBonus += 1024L * (1L << Math.max(0, level - 1));
         }
 
-        // 4. Custom Components: Apotheosis Gems, Modular Gear, Fluids & Gases
         long customBonus = evaluateCustomComponents(stack, true);
-
         return baseBits + enchantBonus + customBonus;
     }
 
@@ -118,7 +107,6 @@ public class BitValueCalculator {
 
         CompoundTag tag = customData.copyTag();
 
-        // --- Apotheosis Affixes & Gear Rarity ---
         if (tag.contains("apoth_rarity")) {
             String rarity = tag.getString("apoth_rarity").toLowerCase();
             bonus += switch (rarity) {
@@ -135,7 +123,6 @@ public class BitValueCalculator {
             bonus += tag.getCompound("apoth_affixes").size() * 8_000L;
         }
 
-        // --- Apotheosis Gem Evaluation (Purity, Type, Sockets) ---
         if (tag.contains("gem") || tag.contains("apoth_gem")) {
             String purity = tag.getString("purity").toLowerCase();
             bonus += switch (purity) {
@@ -148,7 +135,6 @@ public class BitValueCalculator {
             };
         }
 
-        // --- Silent Gear Modular Construction ---
         if (tag.contains("silentgear:construction")) {
             CompoundTag construction = tag.getCompound("silentgear:construction");
             ListTag parts = construction.getList("Parts", Tag.TAG_COMPOUND);
@@ -159,7 +145,6 @@ public class BitValueCalculator {
             }
         }
 
-        // --- Mekanism Gases, Chemicals & Infusions ---
         if (includeFluidsAndGases && tag.contains("mekData")) {
             CompoundTag mekData = tag.getCompound("mekData");
             if (mekData.contains("GasTanks")) {
@@ -182,7 +167,6 @@ public class BitValueCalculator {
             }
         }
 
-        // Generic modded tag fallback
         if (bonus == 0L) {
             bonus += (long) tag.size() * 256L;
         }
@@ -204,21 +188,19 @@ public class BitValueCalculator {
         return Math.max(1L, (long) Math.ceil(raw * ratio));
     }
 
-    /**
-     * Checks if the player has enough bits to withdraw an item,
-     * applying the 25% minimum threshold for damageable gear.
-     */
+    public static long getMinimumWearCost(ItemStack stack) {
+        long fullCost = calculateExtractCost(stack);
+        if (fullCost <= 0L) return 0L;
+        return Math.max(1L, (long) Math.ceil(fullCost * 0.25));
+    }
+
     public static boolean canExtractWithThreshold(ItemStack template, long availableBits) {
         long fullCost = calculateExtractCost(template);
         if (fullCost <= 0) return false;
-
         if (availableBits >= fullCost) return true;
-
-        // If the item has durability, verify if available bits are at least 25% of full cost
         if (template.isDamageableItem()) {
-            return availableBits >= (fullCost / 4L);
+            return availableBits >= getMinimumWearCost(template);
         }
-
         return false;
     }
 
