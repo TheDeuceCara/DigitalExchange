@@ -44,23 +44,25 @@ public class ExchangeSavedData extends SavedData {
         return false;
     }
 
-    /**
-     * Sanitizes incoming item templates to 100% pristine durability
-     * and guards against saving non-empty inventory containers.
-     */
-   public void learnItem(ItemStack stack) {
-    if (stack.isEmpty()) return;
-    
-    // Check if item is already learned (ignoring transient tags/durability)
-    for (ItemStack existing : this.learnedItems) {
-        if (ItemStack.isSameItemSameComponents(existing, stack) || 
-            (existing.getItem() == stack.getItem() && existing.isDamageableItem())) {
+    public void learnItem(ItemStack stack) {
+        if (stack.isEmpty() || !BitValueCalculator.isSafeToLearnOrDeposit(stack)) {
             return;
         }
+
+        // Always sanitize to a pristine 100% condition template
+        ItemStack pristine = BitValueCalculator.createPristineTemplate(stack);
+
+        for (ItemStack existing : this.learnedItems) {
+            // Match same item & components, or same damageable tool
+            if (ItemStack.isSameItemSameComponents(existing, pristine) ||
+                (existing.getItem() == pristine.getItem() && pristine.isDamageableItem())) {
+                return;
+            }
+        }
+
+        this.learnedItems.add(pristine);
+        this.setDirty();
     }
-    this.learnedItems.add(stack.copyWithCount(1));
-    this.setDirty();
-}
 
     public List<ItemStack> getLearnedItems() {
         return this.learnedItems;
@@ -77,7 +79,6 @@ public class ExchangeSavedData extends SavedData {
             ItemStack.OPTIONAL_CODEC.parse(ops, list.get(i))
                     .resultOrPartial()
                     .ifPresent(stack -> {
-                        // Ensure legacy/existing saves are canonicalized to pristine templates
                         ItemStack pristine = BitValueCalculator.createPristineTemplate(stack);
                         data.learnedItems.add(pristine);
                     });
