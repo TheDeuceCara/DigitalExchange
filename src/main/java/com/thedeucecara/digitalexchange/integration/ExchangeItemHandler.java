@@ -19,7 +19,7 @@ public class ExchangeItemHandler implements IItemHandler {
 
     @Override
     public int getSlots() {
-        // Return exactly the number of learned items
+        // Expose only learned items as slots. Slot count matches unique blueprints.
         return this.core.getLearnedItems().size();
     }
 
@@ -36,38 +36,31 @@ public class ExchangeItemHandler implements IItemHandler {
 
         long storedBits = this.core.getStoredBits();
 
-        // 1. Can afford at least 1 full pristine item
-        if (storedBits >= unitCost) {
-            long affordable = storedBits / unitCost;
-            int displayCount = (int) Math.min(affordable, (long) Integer.MAX_VALUE);
-            ItemStack pristine = template.copyWithCount(displayCount);
-            pristine.remove(DataComponents.UNBREAKABLE);
-            if (pristine.isDamageableItem()) {
-                pristine.setDamageValue(0);
-            }
-            return pristine;
+        // Strictly pristine: only show if the player can afford at least 1 full item
+        long affordable = storedBits / unitCost;
+        if (affordable <= 0) {
+            return ItemStack.EMPTY;
         }
 
-        // 2. Cannot afford full item: check 25% wear threshold
-        long minWearThreshold = BitValueCalculator.getMinimumWearCost(template);
-        if (template.isDamageableItem() && storedBits >= minWearThreshold) {
-            // Must return the exact worn stack that extractItem will deliver,
-            // so AE2 creates an AEItemKey that matches the extracted stack.
-            return createWornStack(template, storedBits, unitCost);
+        int displayCount = (int) Math.min(affordable, (long) Integer.MAX_VALUE);
+        ItemStack pristine = template.copyWithCount(displayCount);
+        pristine.remove(DataComponents.UNBREAKABLE);
+        if (pristine.isDamageableItem()) {
+            pristine.setDamageValue(0);
         }
-
-        // 3. Below 25% threshold or non-damageable item
-        return ItemStack.EMPTY;
+        return pristine;
     }
 
     @Override
     public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
         if (stack.isEmpty()) return ItemStack.EMPTY;
 
+        // Container protection check
         if (!BitValueCalculator.isSafeToLearnOrDeposit(stack)) {
             return stack;
         }
 
+        // Calculates fractional bit value based on current durability/fluid contents
         long unitValue = BitValueCalculator.calculateInputValue(stack);
         if (unitValue <= 0) {
             return stack;
@@ -77,6 +70,7 @@ public class ExchangeItemHandler implements IItemHandler {
             long totalGain = unitValue * stack.getCount();
             this.core.addBits(totalGain);
 
+            // Learn blueprint as a 100% pristine template
             ItemStack cleanTemplate = BitValueCalculator.createPristineTemplate(stack);
             this.core.learnItem(cleanTemplate);
         }
@@ -97,59 +91,22 @@ public class ExchangeItemHandler implements IItemHandler {
 
         long currentBits = this.core.getStoredBits();
 
-        // CASE 1: Standard pristine extraction
-        if (currentBits >= fullUnitCost) {
-            long maxAffordable = currentBits / fullUnitCost;
-            long toExtractLong = Math.min((long) amount, maxAffordable);
-            int toExtract = (int) Math.min(toExtractLong, (long) Integer.MAX_VALUE);
-            if (toExtract <= 0) return ItemStack.EMPTY;
+        // Only allow extraction of full items
+        long maxAffordable = currentBits / fullUnitCost;
+        long toExtractLong = Math.min((long) amount, maxAffordable);
+        int toExtract = (int) Math.min(toExtractLong, (long) Integer.MAX_VALUE);
+        if (toExtract <= 0) return ItemStack.EMPTY;
 
-            if (!simulate) {
-                this.core.deductBits((long) toExtract * fullUnitCost);
-            }
-
-            ItemStack out = template.copyWithCount(toExtract);
-            out.remove(DataComponents.UNBREAKABLE);
-            if (out.isDamageableItem()) {
-                out.setDamageValue(0);
-            }
-            return out;
+        if (!simulate) {
+            this.core.deductBits((long) toExtract * fullUnitCost);
         }
 
-        // CASE 2: Fractional durability extraction (25% to 99% cost)
-        long minWearThreshold = BitValueCalculator.getMinimumWearCost(template);
-        if (template.isDamageableItem() && currentBits >= minWearThreshold) {
-            ItemStack wornStack = createWornStack(template, currentBits, fullUnitCost);
-
-            int maxDurability = wornStack.getMaxDamage();
-            int currentDamage = wornStack.getDamageValue();
-            double remainingRatio = (double) (maxDurability - currentDamage) / (double) maxDurability;
-            long bitsConsumed = Math.max(1L, (long) Math.ceil(fullUnitCost * remainingRatio));
-            bitsConsumed = Math.min(currentBits, bitsConsumed);
-
-            if (!simulate) {
-                this.core.deductBits(bitsConsumed);
-            }
-
-            return wornStack;
+        ItemStack out = template.copyWithCount(toExtract);
+        out.remove(DataComponents.UNBREAKABLE);
+        if (out.isDamageableItem()) {
+            out.setDamageValue(0);
         }
-
-        return ItemStack.EMPTY;
-    }
-
-    private ItemStack createWornStack(ItemStack template, long bits, long fullCost) {
-        ItemStack stack = template.copyWithCount(1);
-        stack.remove(DataComponents.UNBREAKABLE);
-
-        int maxDurability = stack.getMaxDamage();
-        if (maxDurability <= 1) return stack;
-
-        double bitRatio = Math.min(0.99, (double) bits / (double) fullCost);
-        int targetDamage = (int) Math.floor(maxDurability * (1.0 - bitRatio));
-        targetDamage = Math.max(1, Math.min(maxDurability - 1, targetDamage));
-
-        stack.setDamageValue(targetDamage);
-        return stack;
+        return out;
     }
 
     @Override
